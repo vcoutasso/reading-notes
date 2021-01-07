@@ -1,0 +1,132 @@
+#+TITLE: Hands-On Machine Learning Notes
+
+* Table of contents :TOC_2:
+- [[#part-i---the-fundamentals-of-machine-learning][Part I - The Fundamentals of Machine Learning]]
+  - [[#01-the-machine-learning-landscape][01. The Machine Learning Landscape]]
+
+* Part I - The Fundamentals of Machine Learning
+
+** 01. The Machine Learning Landscape
+
+*** What is Machine Learning?
+
+Machine Learning is the science and art behind designing computer systems that can learn from data.
+
+#+BEGIN_QUOTE
+A computer program is said to learn from experience $E$ with respect to some task $T$ and some performance measure $P$, if its performance on $T$, as measured by $P$, improves with experience $E$. -- Tom Mitchell, 1997
+#+END_QUOTE
+
+Applying ML techniques to data can help discovert patters that were not immediately apparent. This is called /data mining/, and is part of a process known as Knowledge Discovery in Databases (KDD).
+
+*** Types of Machine Learning Systems
+
+ML systems can be classified in broad categories, based on the following criteria:
+
+- Whether or not human supervision is part of the training process (supervised, unsupervised, semi-supervised and reinforcement learning).
+- If the system can learn incrementally on the fly (online learning) or not (batch learning).
+- Works by comparing new data points to known data points (instance-based learning) or by detecting patterns in the training phase and building a predictive model (model-based learning).
+
+**** Supervised learning
+
+- Classification (classifies/labels new instances)
+- Regression (predicts a target value for new instances)
+
+**** Unsupervised learning
+
+- Clustering (detects groups of similar data points)
+- Anomaly/novelty detection (detects anomalies (outliers)/novelty classes)
+- Data visualization and dimensionality reduction (creates lower-dimensional representations of the data)
+- Association rule learning (discovers relations between attributes)
+
+**** Semi-supervised learning
+
+These methods (most of them combinations of supervised and unsupervised algorithms) can deal with partially labeled datasets (e.g. plenty of unlabeled instances, and few labeled instances).
+
+**** Reinforcement learning
+
+Trains an /agent/ which can perform actions and get /rewards/ (or /penalties/) in return. It learns by itself what is the best strategy (/policy/) to get the most reward over time.
+
+**** Batch learning
+
+The system is not capable of learning incrementally, thus it must be trained using all the available data first, so it can be launched into production (where it runs without learning anymore). This is called /offline learning/.
+For a batch learning system to know about new data, a new version of it must be trained from scratch on the full (now augmented) dataset.
+
+**** Online learning
+
+As opposed to batch learning, these system are trained incrementally by feeding it data instances sequentially in groups called /mini-batches/. This strategy is most suitable for systems that need to adapt to change rapidly or autonomously. This idea can also be used to train systems on datasets too large to fit in memory (/out-of-core/ learning).
+
+**** Instance-based learning
+
+This form of learning can be thought of as simply learning by heart: the system learns the training instances by heart, then generalizes to new cases using a similarity measure to compare them to the learned examples.
+
+**** Model-based learning
+
+Another way to generalize from a training set is to build a model of these data points and then use that model to make /predictions/ on new data (this is called /inference/).
+
+*** Challenges of Machine Learning
+
+**** Insufficient Quantity of Training Data
+
+This [[https://dl.acm.org/doi/10.3115/1073012.1073017][famous paper]] from 2001 showed that very different Machine Learning algorithms performed almost identically on a complex problem, once they were given enough data. Unfortunately, it is not always feasible to obtain extra data.
+
+**** Non-representative Training Data
+
+For a model to be successful, it is crucial that the data it was trained on is representative of the new cases it must generalize to. Some problems we might come across are: if the sample is too small, we can have /sampling noise/ (the data is non-representative as a result of chance); if the sampling method is flawed, even large samples can be non-representative. This is called /sampling bias/.
+
+**** Poor-Quality Data
+
+Preparing and cleaning up datasets takes a significant part of a data scientist's time. This is very important because if the training data is full of problems, it will make it much harder for the system to detect the underlying patterns.
+
+**** Irrelevant Features
+
+The process of coming up with a good set of features to train a model on is called /feature engineering/, and involves the following steps:
+
+- /Feature selection/, which consists of selecting the most useful features for training.
+- /Feature extraction/, which consists of combining existing features to produce more useful ones (dimensionality reduction can help with that).
+- Creating new features by gathering new data.
+
+**** Overfitting the Training Data
+
+We can identify overfitting when a model performs well on the training data, but it does not generalize well for new instances. Complex models can detect subtle patterns in the data, but if the training set is too noisy or too small, the model is likely to detect patterns in the noise itself.
+
+We can reduce the risk of overfitting by constraining a model, that is, applying /regularization/ to it. There are many different kinds regularization strategies, but they essentially seek to constrain the degree of freedom of a given model, basically ensuring simpler models.
+
+The amount of regularization to apply during learning is controlled by a /hyperparameter/ that must be set prior to training and remains constant.
+
+Options to fix this:
+
+- Simplify the model (use fewer parameters, reduce the number of attributes in the data, or constrain the model).
+- Use more training data.
+- Reduce the noise in the data (fix data issues and remove outliers).
+
+**** Underfitting the Training Data
+
+Underfitting is the opposite of overfitting: if a model is too simple to learn the underlying structure of the data, its performance will be greatly reduced.
+
+Options to fix this:
+
+- Use a more powerful/complex model.
+- Use better features (feature engineering).
+- Reduce the constraints (regularization hyperparameter).
+
+*** Testing and Validating
+
+Split the data into two sets: the /training set/ and the /testing set/. It's common to use 80% of the data for training and /hold out/ 20% for testing.
+
+The error rate on new cases is called the /generalization error/ (or /out-of-sample error/). By evaluating a model on the test set, we can get an estimate of this error.
+
+**** Hyperparameter Tuning and Model Selection
+
+If we evaluate the model on the test set too many times and use the results to "improve" it, we might be overfitting the model to the test data.
+
+A common solution to this problem is the /holdout validation/: we hold out part of the training set (this new subset is called /validation set/) to evaluate candidate models and select the best one. After this validation process, we train the model on the full training set (including the validation set) to get the final model, which is then evaluated on the test set.
+
+This works quite well, but can lead to problems: for a validation set too small we take our chances with sampling bias, since we can end up with a non-representative subset of the data. If the validation set is too large, the remaining training set will be much smaller than the full training set.
+
+This issues can be solved by performing repeated /cross-validation/: we split the training set in $k$ subsets of equal size, and use each in turn as a validation set. We then average out all the evaluations of a model, resulting in a much more accurate measure of its performance. The drawback here is that the training time is multiplied by the number of validation sets $k$.
+
+**** Data Mismatch
+
+It might be the case in some applications that the data the model was trained on does not represent the data the model will work with in production. To avoid this, the validation and the test set must be as representative as possible of the data the model will use in production.
+
+If there is a risk of mismatch, we can use yet another set (by holding out some of the training set) that Andrew Ng calls the /train-dev set/. The model is trained on the rest of the training set, and then evaluated on both the train-dev set and the validation set. If the model performs well on the training set, but not on the train-dev set, it is likely overfitting the training data.  If it performs well on both the training set and the train-dev set, but not on the validation set, there is probably some mismatch between the training data and the validation + test data.
