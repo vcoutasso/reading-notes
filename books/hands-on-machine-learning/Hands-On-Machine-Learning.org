@@ -3,11 +3,11 @@
 * Table of contents :TOC_2:
 - [[#part-i---the-fundamentals-of-machine-learning][Part I - The Fundamentals of Machine Learning]]
   - [[#01-the-machine-learning-landscape][01. The Machine Learning Landscape]]
+  - [[#02-end-to-end-machine-learning-project][02. End-to-End Machine Learning Project]]
 
 * Part I - The Fundamentals of Machine Learning
 
 ** 01. The Machine Learning Landscape
-
 *** What is Machine Learning?
 
 Machine Learning is the science and art behind designing computer systems that can learn from data.
@@ -130,3 +130,106 @@ This issues can be solved by performing repeated /cross-validation/: we split th
 It might be the case in some applications that the data the model was trained on does not represent the data the model will work with in production. To avoid this, the validation and the test set must be as representative as possible of the data the model will use in production.
 
 If there is a risk of mismatch, we can use yet another set (by holding out some of the training set) that Andrew Ng calls the /train-dev set/. The model is trained on the rest of the training set, and then evaluated on both the train-dev set and the validation set. If the model performs well on the training set, but not on the train-dev set, it is likely overfitting the training data.  If it performs well on both the training set and the train-dev set, but not on the validation set, there is probably some mismatch between the training data and the validation + test data.
+** 02. End-to-End Machine Learning Project
+*** Look at the Big Picture
+
+**** Some terminology
+
+- /Multiple regression/ problem: a problem in which the system uses multiple features to make a prediction.
+- /Univariate regression/ problem: a problem in which we are only trying to predict a single value.
+- /Multivariate regression/ problem: a problem in which we are trying to predict multiple values.
+- /Hypothesis/: a machine learning system's prediction function may be called a hypothesis, usually denoted by $h$.
+
+**** Performance Measure
+
+- Root-mean-square deviation (RMSE) is generally the preferred performance measure for regressions tasks, although very sensible to outliers. It corresponds to the _Euclidean norm_, also called the $\ell_2$ /norm/,
+   noted $\|\cdot\|_2$ (or just $\|\cdot\|$).
+- Mean absolute error (MAE), also called the average absolute deviation, is a good option in the presence of outliers. It corresponds to the $\ell_1$ /norm/, noted $\|\cdot\|_1$. This is sometimes called the /Manhattan norm/.
+- A /norm/ is a distance measure. The $\ell_k$ /norm/ of a vector $\bold{v}$ containing $n$ elements is defined as $\|\bold{v}\|_k = \left( |v_0|^k + |v_1|^k + \dots + |v_n|^k \right)^{\frac{1}{k}}$. $\ell_0$ gives the number of nonzero elements in the vector. $\ell_\infty$ gives the maximum absolute value in the vector.
+- The higher the norm index $k$, the more if focuses on large values in detriment of smaller ones. That why RMSE ($\ell_2$) is more sensitive to outliers than MAE ($\ell_1$). However, if outliers are exponentially rare, RMSE still performs very well and is generally preferred.
+
+*** Get the Data
+
+A /tail-heavy/ histogram extends much farther to the right of the median than to the left. Feature distributions such as this may make it harder for some ML algorithms to detect patterns. When possible, consider transforming these features (by computing their logarithm, for example).
+
+**** Check the Assumptions!
+
+It's good practice to thoroughly list and verify the assumptions made about the problem at hand. This can help catch serious issues early on, possibly preventing some gigantic headaches.
+
+**** Test Set
+
+This subject is extremely delicate and incorrect handling of test data may lead to creating (and worse: deploying) biased models. Some common mistakes to be aware of:
+
+- Estimating the generalization error using the test set may lead to very optimistic (and quite possibly unrealistic) estimates. This is called /data snooping/ bias.
+- The train/test split should be stable. If in every training iteration the data is split again, the model may get to see the whole dataset over time, which we want to avoid.
+- Purely random sampling methods are generally fine if the dataset is large and balanced enough. If not, we run the risk of introducing a significant sampling bias.
+- /Stratified sampling/ solves the issue of introducing sampling bias: the data is divided into homogeneous subgroups called /strata/, and the data is sampled in such a way that each stratum is guaranteed to be representative of the overall population. Notice that, if there is not a sufficient number of instances for each stratum, the estimate of a stratum's importance may be biased.
+
+*** Discover and Visualize the Data
+
+The ~jet~ color map ranges from blue to red, and it is great for visualizing density, for example.
+
+**** Correlations
+
+- The /standard correlation coefficient/ (also called /Pearson's r/) can be computed between every pair of attributes to discover linear correlation between them. This coefficient ranges from -1 to 1. When close to 1, it indicates strong positive correlation. When close to -1, it indicates strong negative correlation. Coefficients close to 0 mean that there is no linear correlation.
+- Pandas' ~scatter_matrix()~ plots every numerical attribute against every other numerical attribute. The number of plots grows quadratically, so it might be a good idea to focus only on a few promising attributes depending on the dataset.
+
+*** Prepare the Data
+
+Using functions to prepare the data for ML algorithms is good practice. This allows for ease of reproduction, the habit may lead to a neat little library of common transformation functions, and the modularity allows for lots of flexibility when trying out different combinations of transformations.
+
+**** Data Cleaning
+
+Real world data rarely comes tidy and ready to be fed to ML algorithms: datasets often are filled with missing values among other problems. When dealing with missing values, we have three options:
+
+1. Get rid of every sample that contain missing data.
+2. Get rid of the whole attribute.
+3. Set these values to some pre-determined value (e.g. zero, the mean, the median).
+
+When working with the option 3, the median value (for example) should be computed using the training set to fill it. It's important to save these values for later use: they will be need to replace the missing values in the test set, as well as on new data when the system goes live. Scikit-Learn provides a handy class to take cara of missing values: ~SingleImputer~.
+
+
+**** Text and Categorical Attributes
+
+It's quite common for categorical attributes to be represented as text (e.g. low, normal, high). Most ML algorithms prefer to work with numbers, so we can convert these categories from text to numbers. Scikit-Learn's ~OrdinalEncoder~ is a great tool for just that!
+
+One issue with that is that the algorithms will assume that two nearby numerical values are more similar than two distant values. We can avoid this by using what's called /one-hot encoding/, adding extra binary attributes that represent the categorical values. This is called /one-hot encoding/, and Scikit-Learn provides the ~OneHotEncoder~ class to do this.
+
+**** Feature Scaling
+
+ML algorithms generally don't perform well when the input attributes have very different scales. We have two main approaches to address this issue: /min-max scaling/ (also called /normalization/) and /standardization/:
+
+- Normalization rescales the values so that they end up ranging from 0 to 1 (or some other arbitrary range).
+- Standardization first subtracts the mean value, then it divides by the standard deviation. It does not bound values to some pre-determined range, but it's much less affected by outliers.
+
+Important: the scalers should be fed *the training data only* to prevent any kind of bias.
+
+*** Selecting and Training a Model
+
+/K-fold cross-validation/ is usually a good strategy for a reliable evaluation of a model.
+
+It is good practice to save models we experiment with. The /pickle/ module lets us do just that, serializing the model and saving it as a file. The /joblib/ library is another option, which is more efficient at serializing large NumPy arrays.
+
+*** Fine-Tuning a Model
+
+**** Grid Search and Randomized Search
+
+~GridSearchCV~ is a neat little tool that searches for the best combination of hyperarameters for us, given a set of values to be tested. It uses cross-validation to evaluate all the possible combinations. One thing to keep in mind is that if the best value for a given hyperparameter is the largest value of the range of possibilites supplied, it might be a good idea to search again with higher values (we might find something even better!).
+
+The problem with the grid search approach is that it's very computationally expensive: a model is trained once for every single combination of hyperparameters. With a model complex enough and many combinations to test, the task can grow to become intractable in reasonable time pretty quickly. For occasions like this, it is often preferable to use ~RandomizedSearchCV~ instead. It evaluates a given number of random combinations, instead of all of them. With this we have much more control of how much time we spend.
+
+**** Analyze the Best Models
+
+We will often gain good insights on the problem by inspecting the best models. For example, the ~RandomForestRegressor~ estimator can indicate the relative of each attribute for making predictions!
+
+**** Evaluate the System on the Test Set
+
+This is the final step of creating a model, and the only moment we really deal with the test set.
+
+Tip: If we want to have an idea of how precise and estimate is, we can compute a 95% /confidence interval/ for the generalization error using ~scipy.stats.t.interval()~.
+
+*** Launching, Monitoring and Maintaining a System
+
+The fact is, we need to monitor a model's live performance. Relevant processes may fail (we need to be prepared for dealing with those), performance may degrade because of a poor-quality input signal (we could monitor inputs somehow to detect these), and data that keeps evolving may render a model useless over time.
+
+It's important to keep backups of every model used, as well as the tools to properly and quickly work with them.
