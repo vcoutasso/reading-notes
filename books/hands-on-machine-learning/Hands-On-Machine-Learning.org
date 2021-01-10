@@ -271,6 +271,7 @@ Measures the accuracy of the positive predictions. It is calculated by
 $$
 \rm{precision} = \frac{TP}{TP + FP}
 $$
+
 $TP$ is the number of true positives, and $FP$ is the number of false positives.
 
 **** Recall
@@ -280,6 +281,7 @@ Also named /sensitity/ or the /true positive rate/ (TPR), it is the ratio of pos
 $$
 \rm{recall} = \frac{TP}{TP + FN}
 $$
+
 $FN$ is the number of false negatives.
 
 **** F1 score
