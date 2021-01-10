@@ -4,10 +4,12 @@
 - [[#part-i---the-fundamentals-of-machine-learning][Part I - The Fundamentals of Machine Learning]]
   - [[#01-the-machine-learning-landscape][01. The Machine Learning Landscape]]
   - [[#02-end-to-end-machine-learning-project][02. End-to-End Machine Learning Project]]
+  - [[#03-classification][03. Classification]]
 
 * Part I - The Fundamentals of Machine Learning
 
 ** 01. The Machine Learning Landscape
+
 *** What is Machine Learning?
 
 Machine Learning is the science and art behind designing computer systems that can learn from data.
@@ -130,7 +132,9 @@ This issues can be solved by performing repeated /cross-validation/: we split th
 It might be the case in some applications that the data the model was trained on does not represent the data the model will work with in production. To avoid this, the validation and the test set must be as representative as possible of the data the model will use in production.
 
 If there is a risk of mismatch, we can use yet another set (by holding out some of the training set) that Andrew Ng calls the /train-dev set/. The model is trained on the rest of the training set, and then evaluated on both the train-dev set and the validation set. If the model performs well on the training set, but not on the train-dev set, it is likely overfitting the training data.  If it performs well on both the training set and the train-dev set, but not on the validation set, there is probably some mismatch between the training data and the validation + test data.
+
 ** 02. End-to-End Machine Learning Project
+
 *** Look at the Big Picture
 
 **** Some terminology
@@ -233,3 +237,91 @@ Tip: If we want to have an idea of how precise and estimate is, we can compute a
 The fact is, we need to monitor a model's live performance. Relevant processes may fail (we need to be prepared for dealing with those), performance may degrade because of a poor-quality input signal (we could monitor inputs somehow to detect these), and data that keeps evolving may render a model useless over time.
 
 It's important to keep backups of every model used, as well as the tools to properly and quickly work with them.
+
+** 03. Classification
+
+*** MNIST
+
+The MNIST dataset is a set of 70,000 small images of handwritten digits. This set has been studied so much that it is often called the "hello world" of Machine Learning. Each image is 28 $\times$ 28 pixels (totaling 784), and this dataset is already split in a training set (the first 60,000 images) and a test set (the last 10,000 images).
+
+Some ML algorithms are sensitive to the order of training instances, so feeding them many similar instances in a row might affect performance. Shuffling the dataset beforehand is a good idea since it ensures that this won't happen.
+
+*** Training a Binary Classifier
+
+A /binary classifier/ is capable of distinguishing between just two classes. An example of this is the /Stochastic Gradient Descent/ (SGD) classifier, which can handle very large datasets efficiently, and deals with training instances independently, one at a time. The "stochastic" in the name means that it relies on randomness during training.
+
+*** Performance Measures
+
+Evaluating a classifier is often trickier than evaluating a regressor!
+
+~cross_val_predict()~ performs K-fold cross-validation and returns the predictions (instead of the score) made on each test fold.
+
+**** Accuracy
+
+Ratio of correct predictions. It's generally not the preferred performance measure for classifiers, especially wen dealing with /skewed datasets/ (when some classes have much more instances than others).
+
+**** Confusion Matrix
+
+Often a much better way to evaluate the performance of a classifier than the accuracy, the confusion matrix allows us to gain some insights on where exactly the classifier is going wrong (or right!).
+
+**** Precision
+
+Measures the accuracy of the positive predictions. It is calculated by
+
+$$
+\rm{precision} = \frac{TP}{TP + FP}
+$$
+$TP$ is the number of true positives, and $FP$ is the number of false positives.
+
+**** Recall
+
+Also named /sensitity/ or the /true positive rate/ (TPR), it is the ratio of positive instances that are correctly detected by the classifier. It is given by
+
+$$
+\rm{recall} = \frac{TP}{TP + FN}
+$$
+$FN$ is the number of false negatives.
+
+**** F1 score
+
+The $F_1$ /score/ is the combination of precision and recall into a single metric. This score is given by the /harmonic mean/ of precision and recall. Remember that the harmonic mean gives much more weight to low values! This effectively means that a classifier will only get a high $F_1$ score if both recall and precision are high. It is given by
+
+$$
+2 \times \frac{\text{precision} \times \text{recall}}{\text{precision} + \text{recall}}
+$$
+
+This score is overall a great way to measure a classifiers' performance, but in some context we might, for example, care more about precision than recall, so this score is no panacea!
+
+Keep in mind that increasing precision reduces recall, and vice versa. This is called the /precision/recall trade-off/. Also, a high-precision classifier is not very useful if its recall is too low!
+
+**** ROC Curve
+
+The /receiver operating characteristic/ (ROC) curve is another very common tool used with binary classifiers. The ROC curve  plots the /true positive rate/ (recall) against the /false positive rate/ (FPR). The FPR is equal to 1 - /true negative rate/ (TNR). The TNR is also called /specificity/, so the ROC curve plots /sensitivity/ versus 1 - /specificity/.
+
+Here we have yet another trade-off: the higher the recall, the more false positives the classifier produces.
+
+We can use the ROC curve to compare classifiers by measuring the /area under the curve/ (AUC). A perfect classifier will have a ROC AUC equal to 1, whereas a purely random classifier will have a ROC AUC equal to 0.5.
+
+Between the ROC curve and the PR curve, the latter should be preferred whenever the positive class is rare or when we care more about false positives than the false negatives. Otherwise, we should use the ROC curve.
+
+*** Multiclass Classification
+
+/Multiclass classifiers/ (also called /multinomial classifiers/) can distinguish between more than two classes. There are algorithms capable of handling multiple classes natively (such as Random Forest classifiers and naive Bayes classifiers). Others (such as Support Vector Machines or Logistic Regression) are strictly binary classifiers. However, there are strategies we can use to perform multiclass classification with multiple binary classifiers.
+
+There is the /one-versus-the-rest/ (OvR) strategy (also called /one-versus-all/): we train $N$ binary classifiers (with $N$ being the number of classes), each of which is capable of identifying if a given sample is of a particular class. To classify a new instance, we use the assignment of the classifier with the highest score.
+
+We can also train a binary classifier for every pair of classes. This is called the /one-versus-one/ (OvO) strategy. For $N$ classes, we would need to train $N \times (N - 1) / 2$ classifiers! The main advantadge of this strategy is that each classifier only needs to be trained on the part of the training set for the two classes that it must distinguish. For algorithms that scale poorly with the size of the training set (such as Support Vector Machine), it is actually faster to train many classifiers on small training sets than to train few classifiers on large training sets! However, for most binary classification algorithms, OvR is preferred.
+
+Scikit-Learn automatically detects when we are trying to use a binary classification algorithm for a multiclass classification problem, and runs OvR or OvO for us depending on the algorithm. We can specify which strategy we prefer by using the ~OneVsOneClassifier~ or ~OneVsRestClassifier~ classes.
+
+*** Error Analysis
+
+Assuming we have found a promising model and are looking for ways to improve it, analyzing the types of errors it makes might be a great bet! We could start looking at the confusion matrix to gain some insights on how to improve the classifier. If we notice that the model is biased towards some specific classes, we would have a very clear objective in mind to do, for example, some feature engineering in order to mitigate the problem.
+
+*** Multilabel Classification
+
+In some cases we may want to have a classifier capable of assigning multiple classes for each instance. Such a classification system is called a /multilabel classification/ system. There are many ways to evaluate a multilabel classifier. One approach would be to measure the $F_1$ score for each invidiual label, then simply average it out. However, this assumes that all labels are equally important, which may not be the case. If it's not, we could give each label a weight equal to its /support/ (the number of instances with that target label).
+
+*** Multioutput Classification
+
+/Multioutput-multiclass classification/ (or simply /multioutput-classification/) is a generalization of multilabel classification, where each label can be multiclass.
