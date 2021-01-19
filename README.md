@@ -1,6 +1,6 @@
 # Reading notes
 
-This repository contains notes I have taken while reading some books. A habit that I, unfortunately, took too long to adopt.
+This repository contains notes I have taken while reading some books.
 
 ## Books
 
