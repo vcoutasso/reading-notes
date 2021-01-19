@@ -6,6 +6,7 @@
   - [[#02-end-to-end-machine-learning-project][02. End-to-End Machine Learning Project]]
   - [[#03-classification][03. Classification]]
   - [[#04-training-models][04. Training Models]]
+  - [[#05-support-vector-machines][05. Support Vector Machines]]
 
 * Part I - The Fundamentals of Machine Learning
 
@@ -193,7 +194,6 @@ Real world data rarely comes tidy and ready to be fed to ML algorithms: datasets
 
 When working with the option 3, the median value (for example) should be computed using the training set to fill it. It's important to save these values for later use: they will be need to replace the missing values in the test set, as well as on new data when the system goes live. Scikit-Learn provides a handy class to take cara of missing values: ~SingleImputer~.
 
-
 **** Text and Categorical Attributes
 
 It's quite common for categorical attributes to be represented as text (e.g. low, normal, high). Most ML algorithms prefer to work with numbers, so we can convert these categories from text to numbers. Scikit-Learn's ~OrdinalEncoder~ is a great tool for just that!
@@ -348,7 +348,7 @@ Note: In Machine Learning, vectors are often represented as /column vectors/, wh
 To find the value of $\bm{\theta}$ that minimizes the cost function, there is a /closed-form/ solution: a mathematical equation that gives the result directly. This is called the /Normal Equation/:
 
 $$
-\bm{\hat \theta} = (\bm{X}^T\bm{X})^{-1}\bm{X}^T\bm{y}
+\bm{\hat \theta} = (\bm{X}^\top\bm{X})^{-1}\bm{X}^\top\bm{y}
 $$
 
 where $\bm{\hat \theta}$ is the value of $\bm{\theta}$ that minimizes the cost function, $\bm{y}$ is the vector of target values, and $\bm{X}$ is the training data.
@@ -483,3 +483,134 @@ When given an instance $\bm{x}$, the Softmax Regression model computes a score $
 With the scores of every class computed for an instance $\bm{x}$, we can estimate the probability $\hat p_k$ that the instance belongs to the class $k$ by running the scores through the softmax function.
 
 Cross entropy is frequently used to measure how well a set of estimated class probabilities matches the target classes.
+
+** 05. Support Vector Machines
+
+/Support Vector Machines/ are powerful and versatile ML models capable of performing linear and nonlinear classification, regression, and outlier detection. SVMs are particularly well suited for classification of complex datasets of small or medium sizes.
+
+*** Linear SVM Classification
+
+An intuitive way to think about an SVM classifier is as a model that fits the widest possible "street" between classes. This is called /large margin classification/.
+
+Adding training instances "off the streets" will not affect the decision boundary at all: this is fully determined by the instances located on the edges of the street. These instances are called /support vectors/.
+
+Warning: SVMs are sensitive to the feature scales.
+
+**** Soft Margin Classification
+
+We can strictly impose that all instances must be off the street and on the right side (with respect to the instances' class): this is called /hard margin classification/. This approach has two main issues: it only works if the data is intrinsically linearly separable; also, it is very sensitive to outliers (a single outlier could potentially break the model).
+
+To avoid these issues, we can use a more flexible model. The objective of such model is to find a good balance between keeping the street as large as possible and limiting the /margin violations/. This is called /soft margin classification/.
+
+Tip: If a SVM model is overfitting, we can try regularizing it by reducing $C$, the parameter that controls the softness of the margin.
+
+*** Nonlinear SVM Classification
+
+Many datasets are not linearly separable, so a linear model by itself would not be of much help. One approach to handle this is to add more features, such as polynomial features.
+
+**** Polynomial Kernel
+
+Additional polynomial features can work great with many different ML algorithms. However, at a low polynomial degree, this method is not able to deal with very complex dataset, and with a high polynomial degree it creates a huge number of features, making the model too slow.
+
+Luckily, when using SVMs we can apply a technique called the /kernel trick/. The kernel trick makes it possible to get the same result as if we had added many polynomial features, without actually having to add them. Since we don't actually add any features, there is no combinatorial explosion at all!
+
+Tip: When using grid search to find the right hyperparameter values, it is often faster to first do a very coarse search, then a finer search around the best values found.
+
+**** Similarity Features
+
+Another technique is to add features computed using a /similarity function/, which measures how much each instance resembles a particular /landmark/. As an example, we could use the Gaussian /Radial Basis Function/ (RBF) as a similarity function.
+
+The results of this approach will depend on the similarity function used, as well as the landmarks we have selected. For the landmark selection, we could create one at the location of each and every instance in the dataset. Doing so, many dimensions are created, which increases the chances that the transformed dataset will be linearly separable. However, this approach transforms a training set with $m$ instances and $n$ features into a training set with $m$ instances and $m$ features (assuming we drop the original features). In other words, if the training set is very large, we'll end up with an equally large number of features.
+
+**** Gaussian RBF Kernel
+
+Just as with the polynomial method, the similarity features method can be useful with any ML algorithm, but it may be computationally intractable to compute all the additional features. The kernel trick does its magic once again, making it possible to obtain similar results as if we had added many similarity features.
+
+The Gaussian RBF kernel is not the only one, but it is perhaps the most common. Some kernels are specialized for specific data structures, which can be quite useful.
+
+Tip: As a rule of thumb, the linear kernel is often a good first option. If the training set is not too large, the Gaussian RBF kernel works well in most cases.
+
+**** Computational Complexity
+
+The ~LinearSVC~ class does not support the kernel trick, but it scales almost linearly with the number of training instances and the number of features. The algorithm takes longer if we require very high precision (which is controlled by the tolerance hyperparameter $\epsilon$).
+
+The ~SVC~ class supports the kernel trick, but it gets dreadfully slow when the number of training instances gets too large.
+
+The following is a neat comparison of Scikit-Learn classes for SVM classification:
+
+| *Class*         | *Time complexity*                                          | *Out-of-core support* | *Scaling required* | *Kernel trick* |
+|-----------------+------------------------------------------------------------+-----------------------+--------------------+----------------|
+| ~LinearSVC~     | $\mathcal{O}(m \times n)$                                  | No                    | Yes                | No             |
+| ~SGDClassifier~ | $\mathcal{O}(m \times n)$                                  | Yes                   | Yes                | No             |
+| ~SVC~           | $\mathcal{O}(m^2 \times n)$ to $\mathcal{O}(m^3 \times n)$ | No                    | Yes                | Yes            |
+
+*** SVM Regression
+
+SVM is quite a versatile algorithm: it also supports linear and nonlinear regression. The trick is to reverse the objective: SVM Regression tries to fit as many instances as possible /on/ the street while limiting margin violations (which in this case would be instances /off/ the street). The width of the street is controlled by a hyperparameter $\epsilon$.
+
+For dealing with nonlinear regression tasks, we can use a kernelized SVM model.
+
+Note: SVMs can also be used for outlier detection. The author does not delve into this use case, but recommends the Scikit-Learn documentation for more details.
+
+*** Under the Hood
+
+This section uses a convention that is more convenient (and more common) when dealing with SVMs: the bias term is called $b$, and the feature weights vector is called $\bm{w}$.
+
+**** Decision Function and Predictions
+
+The linear SVM classifier predicts the class of a new instance $\bm{x}$ by computing the decision function $\bm{w}\top\bm{x} + b$. If the result is positive, the predicted class $\hat{y}$ is the positive class (1), and otherwise it is the negative class (0).
+
+For a model fitted on a two-dimensional dataset, its decision function will be a 2D plane. The decision boundary is the set of points where the decision function intercepts the data plane.
+
+Training a linear SVM classifier is essentially finding the values of $\bm{w}$ and $b$ that make the margin as wise as possible while avoiding margin violations (hard margin) or limiting them (soft margin).
+
+**** Training Objective
+
+The slope of the decision function is equal to the norm of the weight vector, $|| \bm{w} ||$. Dividing the slope by 2 will multiply the margin by 2. The smaller the weight vector $\bm{w}$, the larger the margin.
+
+In order to get a large margin, we want to minimize $|| \bm{w} ||$.
+
+Note: In practice, we minimize $\frac{1}{2} || \bm{w} ||^2$ rather than minimizing $|| \bm{w} ||$, because the former has a simple derivative (just $\bm{w}$), while the latter is not differentiable at $\bm{w} = 0$. Optimization algorithms work much better on differentiable functions.
+
+To get the soft margin objective, a /slack variable/ $\zeta^{(i)}$ is introduces for each instance. $\zeta^{(i)}$ measures how much the $i^{\text{th}}$ instance is allowed to violate the margin. With this, we now have two conflicting objectives: minimize the slack variables to reduce margin violations, and minimize $\frac{1}{2} || \bm{w} ||^2$ to increase the margin. This is where the $C$ hyperparameter kicks in: it allows us to define the trade-off between these two objectives.
+
+**** Quadratic Programming
+
+Both the hard margin and soft margin problems are convex quadratic optimization problems with linear constraints (/Quadratic Programming/ (QP) problems).
+
+We can set the QP parameters in such a way that we get the hard margin linear SVM classifier objective (better detailed in the book). We could then train a hard margin linear SVM using an off-the-shelf QP solver, provided that we pass it the appropriate parameters. Similarly, we can use a QP solver to solve the soft margin problem.
+
+**** The Dual Problem
+
+Given a constrained optimization problem, known as the /primal problem/, it is possible to express a different but closely related problem, called its /dual problem/. Typically, the solution to the dual problem gives a lower bound to the solution of the primal problem, but under some conditions it can have the same solution. Fortunately, the SVM problem meets these conditions!
+
+The dual problem is faster to solve than the primal one when the number of training instances is smaller than the number of features. Also, the dual problem makes the kernel trick possible, while the primal does not.
+
+**** Kernelized SVMs
+
+According to /Mercer's theorem/, if a function $K(\bm{a}, \bm{b})$ respects the /Mercer's conditions/, then there exists a function $\phi$ that maps $\bm{a}$ and $\bm{b}$ into another space such that $K(\bm{a}, \bm{b}) = \phi(\bm{a})^\top \phi(\bm{b})$. This means that we can use $K$ as a kernel because we know $\phi$ exists, even if we don't know what it is exactly.
+
+This allows us to simply replace the transformations by their correspondent kernels, essentially skipping the transformation step. This results in strictly the same as if we had transformed the whole training set then fitted a linear SVM algorithm, but this trick makes the whole process much more efficient.
+
+Note that some frequently used kernels (such as the sigmoid kernel) don't respect all of the Mercer's conditions, but they generally work well in practice.
+
+These are some of the most commonly used kernels:
+
+$$
+\begin{align*}
+    \text{Linear:} && K(\bm{a}, \bm{b}) = \bm{a}^\top \bm{b} \\
+    \text{Polynomial:} && K(\bm{a}, \bm{b}) = (\gamma \bm{a}^\top \bm{b} + r)^d  \\
+    \text{Gaussian RBF:} && K(\bm{a}, \bm{b}) = \exp(-\gamma || \bm{a} - \bm{b} ||^2) \\
+    \text{Sigmoid:} && K(\bm{a}, \bm{b}) = \tanh(\gamma \bm{a}^\top \bm{b} + r) \\
+\end{align*}
+$$
+
+**** Online SVMs
+
+For linear SVM classifiers, one way of implementing an online SVM classifier is to use Gradient Descent (e.g. using ~SGDClassifier~) to minimize the cost function, which is derived from the primal problem. However, Gradient Descent converges much more slowly than the methods based on QP.
+
+It is also possible to implement online kernelized SVMs. For large-scale nonlinear problems, consider using neural networks instead.
+
+**** Hinge Loss
+
+The function $\max(0, 1 - t)$ is called the /hinge loss/ function. It is equal to 0 when $t \ge 1$. Its derivative (slope) is equal to -1 if $t < 1$ and 0 if $t > 1$.
