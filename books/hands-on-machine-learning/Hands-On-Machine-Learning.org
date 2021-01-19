@@ -5,6 +5,7 @@
   - [[#01-the-machine-learning-landscape][01. The Machine Learning Landscape]]
   - [[#02-end-to-end-machine-learning-project][02. End-to-End Machine Learning Project]]
   - [[#03-classification][03. Classification]]
+  - [[#04-training-models][04. Training Models]]
 
 * Part I - The Fundamentals of Machine Learning
 
@@ -312,7 +313,7 @@ Between the ROC curve and the PR curve, the latter should be preferred whenever 
 
 There is the /one-versus-the-rest/ (OvR) strategy (also called /one-versus-all/): we train $N$ binary classifiers (with $N$ being the number of classes), each of which is capable of identifying if a given sample is of a particular class. To classify a new instance, we use the assignment of the classifier with the highest score.
 
-We can also train a binary classifier for every pair of classes. This is called the /one-versus-one/ (OvO) strategy. For $N$ classes, we would need to train $N \times (N - 1) / 2$ classifiers! The main advantadge of this strategy is that each classifier only needs to be trained on the part of the training set for the two classes that it must distinguish. For algorithms that scale poorly with the size of the training set (such as Support Vector Machine), it is actually faster to train many classifiers on small training sets than to train few classifiers on large training sets! However, for most binary classification algorithms, OvR is preferred.
+We can also train a binary classifier for every pair of classes. This is called the /one-versus-one/ (OvO) strategy. For $N$ classes, we would need to train $N \times (N - 1) / 2$ classifiers! The main advantage of this strategy is that each classifier only needs to be trained on the part of the training set for the two classes that it must distinguish. For algorithms that scale poorly with the size of the training set (such as Support Vector Machine), it is actually faster to train many classifiers on small training sets than to train few classifiers on large training sets! However, for most binary classification algorithms, OvR is preferred.
 
 Scikit-Learn automatically detects when we are trying to use a binary classification algorithm for a multiclass classification problem, and runs OvR or OvO for us depending on the algorithm. We can specify which strategy we prefer by using the ~OneVsOneClassifier~ or ~OneVsRestClassifier~ classes.
 
@@ -322,8 +323,163 @@ Assuming we have found a promising model and are looking for ways to improve it,
 
 *** Multilabel Classification
 
-In some cases we may want to have a classifier capable of assigning multiple classes for each instance. Such a classification system is called a /multilabel classification/ system. There are many ways to evaluate a multilabel classifier. One approach would be to measure the $F_1$ score for each invidiual label, then simply average it out. However, this assumes that all labels are equally important, which may not be the case. If it's not, we could give each label a weight equal to its /support/ (the number of instances with that target label).
+In some cases we may want to have a classifier capable of assigning multiple classes for each instance. Such a classification system is called a /multilabel classification/ system. There are many ways to evaluate a multilabel classifier. One approach would be to measure the $F_1$ score for each individual label, then simply average it out. However, this assumes that all labels are equally important, which may not be the case. If it's not, we could give each label a weight equal to its /support/ (the number of instances with that target label).
 
 *** Multioutput Classification
 
 /Multioutput-multiclass classification/ (or simply /multioutput-classification/) is a generalization of multilabel classification, where each label can be multiclass.
+
+** 04. Training Models
+
+*** Linear Regression
+
+A linear regression model makes predictions by computing a weighted sum of the input features, plus a constant called the /bias term/ (or /intercept term/). This can be written as
+
+$$
+\hat y  = h_{\theta}(\bm{x}) = \bm{\theta} \dot \bm{x}
+$$
+
+where $\bm{\theta}$ is the model's /parameter vector/, $\bm{x}$ is the /feature vector/, and $h_{\theta}$ is the hypothesis function.
+
+Note: In Machine Learning, vectors are often represented as /column vectors/, which are 2D arrays with a single column.
+
+**** The Normal Equation
+
+To find the value of $\bm{\theta}$ that minimizes the cost function, there is a /closed-form/ solution: a mathematical equation that gives the result directly. This is called the /Normal Equation/:
+
+$$
+\bm{\hat \theta} = (\bm{X}^T\bm{X})^{-1}\bm{X}^T\bm{y}
+$$
+
+where $\bm{\hat \theta}$ is the value of $\bm{\theta}$ that minimizes the cost function, $\bm{y}$ is the vector of target values, and $\bm{X}$ is the training data.
+
+Scikit-Learn's ~LinearRegression~ class is based on the ~scipy.linalg.lstsq()~ (least squares) function, which computes $\bm{\hat \theta}$ using the /pseudoinverse/ of $\bm{X}$ (more specifically, the Moore-Penrose inverse). The pseudoinverse itself is computed using /Singular Value Decomposition/ (SVD). This approach is more efficient than computing the Normal Equation, and has the advantage of handling edge cases nicely: the pseudoinverse is always defined (whereas the inverse matrix is not defined for singular matrices).
+
+**** Computational Complexity
+
+The /computational complexity/ of inverting a matrix $\bm{X}$ with $n$ features is typically about $\mathcal{O}(n^{2.4})$ to $\mathcal{O}(n^3)$, depending on the implementation. The SVD approach is about $\mathcal{O}(n^2)$. Both approaches can get very slow when the number of features grow large. The good thing is that both are linear with regard to the number of instances in the training set (they are $\mathcal{O}(m)$).
+
+*** Gradient Descent
+
+The general idea of this optimization algorithm is to tweak parameters iteratively in order to minimize a cost function. Gradient Descent measures the local gradient of the error function with regard to the parameter vector $\bm{\theta}$, and goes in the direction of the descending gradient. The minimum is reached when the gradient is zero. This algorithm performs a search in the model's /parameter space/: the more parameters it has, the harder the search is!
+
+Warning: When using Gradient Descent, all features should have a similar scale, or else it will take much longer to converge!
+
+Note: GD scales well with the number of features.
+
+The MSE cost function for a Linear Regression model is a /convex function/, which implies that there are no local minima, just one global minimum! It is also a continuous function with a slope that never changes abruptly. These two facts are enough to guarantee that Gradient Descent will approach the global minimum.
+
+**** Batch Gradient Descent
+
+This implementation of Gradient Descent uses the whole batch of training data at every step, computing all the partial derivatives of the cost function. Consequently, it is terribly slow on very large training sets.
+
+Setting the appropriate number of iterations is an important aspect of the Gradient Descent: a number too low, and the algorithm will still be far away from the optimal solution when it stops; if it is too high, time will be wasted after convergence with model parameters that do not change anymore. A solution to this is to set a very large number of iterations, but interrupt the algorithm when the gradient vector becomes too small (smaller than a tolerance $\epsilon$), indication that the algorithm has almost reached the minimum.
+
+**** Stochastic Gradient Descent
+
+Batch Gradient Descent has a major disadvantage: it uses the whole training set to compute the gradients at every step, which can be very computationally expensive. /Stochastic Gradient Descent/ deals with this issue by picking a random instance of data at every step, and computing the gradients based only on that single instance.
+
+Due to its stochastic (i.e. random) nature, this algorithm is much less regular than the Batch variant: the cost function will bounce up and down, decreasing only on average. The algorithm never settles down, it will continue to bounce around even when it is already very close to the minimum. However, there are situations (when the cost function is very irregular) in which this behavior can actually help the algorithm jump out of local minima.
+
+Although this randomness has its perks, it also means that the algorithm will never settle at the minimum. We can tackle this by gradually reducing the learning rate, which will make the algorithm bounce around less and less as it approaches the minimum. However, using an appropriate /learning schedule/ (the function that determines the learning rate at each iteration) is crucial: if we reduce the learning rate too quickly, the algorithm might end up frozen halfway to the solution; if we reduce the learning rate too slowly, the algorithm will still jump around for a long time, which can cause it to end up with a suboptimal solution.
+
+Another aspect to be aware of is that since instances are picked randomly, some instances may be picked much more often than expected, while others may not be picked at all.
+
+Warning: When using SGD, the instances must be independent and identically distributed (IID). If this is not the case, SGD may start by optimizing for one label, then the next, and so on, which will probably lead to a poor solution when it settles.
+
+**** Mini-batch Gradient Descent
+
+Mini-batch GD sits right between Batch GD and Stochastic GD: it computes the gradient on small random sets of instances called /mini-batches/. Mini-batch GD has a major advantage over Stochastic GD: it can get a performance boost from hardware optimization of matrix operations!
+
+Compared to Stochastic GD, Mini-batch GD will end up walking closer to the minimum, but it may be harder for it to escape from local minima.
+
+The following table sums up pretty nicely the comparison between algorithms for Linear Regression:
+
+| *Algorithm*     | *Large m* | *Out-of-core support* | *Large n* | *Hyperparameters* | *Scaling required* | *Scikit-Learn*     |
+|-----------------+-----------+-----------------------+-----------+-------------------+--------------------+--------------------|
+| Normal Equation | Fast      | No                    | Slow      |                 0 | No                 | N/A                |
+| SVD             | Fast      | No                    | Slow      |                 0 | No                 | ~LinearRegression~ |
+| Batch GD        | Slow      | No                    | Fast      |                 2 | Yes                | ~SGDRegressor~     |
+| Stochastic GD   | Fast      | Yes                   | Fast      |                ≥2 | Yes                | ~SGDRegressor~     |
+| Mini-batch GD   | Fast      | Yes                   | Fast      |                ≥2 | Yes                | ~SGDRegressor~     |
+
+*** Polynomial Regression
+
+Although a linear model is, well, linear, it can be used to fit nonlinear data! A simple way to achieve this is to add powers of each feature as new features, then train a linear model on this extended set of features. This technique is called /Polynomial Regression/.
+
+*** Learning Curves
+
+Learning curves are plots of the model's performance on the training set and the validation set as a function of the training set size (or the training iteration). Plotting such curves can help to analyze the model's behavior, such that identifying under and overfitting becomes easy.
+
+*** The Bias/Variance Trade-Off
+
+A model's generalization error can be expressed as a sum of three very different errors:
+
+- /Bias/: This part of the error is due to wrong assumptions (such as assuming that the data distribution is simpler than it actually is). A high-bias model is likely to underfit the training data.
+- /Variance/: This part is due to the model's excessive sensitivity to small variations in the training data. A model with many degrees of freedom is likely to have high variance and thus overfit the data.
+- /Irreducible error/: This is due to the noisiness of the data itself. The only way to reduce this error is to clean up the data.
+
+  Increasing a model's complexity will typically increase its variance and reduce its bias. Conversely, reducing a model's complexity will increase its bias and reduce its variance.
+
+*** Regularized Linear Models
+
+A good way to reduce overfitting is to regularize the model: the fewer degrees of freedom it has, the harder it will be for it to overfit the data. When dealing with linear models, regularization is often achieved by constraining the weights of the model.
+
+**** Ridge Regression
+
+/Ridge Regression/ (also called /Tikhonov regularization/) is a regularized version of Linear Regression. The difference is that the /regularization term/ $\alpha \sum_{i=1}^n \theta_i^2$ is added to the cost function. This forces the algorithm to keep the model weights as small as possible.
+
+Note that the regularization term should only be added to the cost function during training! Once the model is trained, we want to use the unregularized performance measure to evaluate the model.
+
+The parameter $\alpha$ controls the strength of the regularization: if $\alpha=0$, then Ridge Regression is just Linear Regression; if $alpha$ is very large, then all weights end up very close to zero, resulting in a flat line going through the data's mean.
+
+Warning: Ridge Regression is sensitive to the scale of the input features, so it is important to regularize the data! This is true of most regularized models.
+
+**** Lasso Regression
+
+/Least Absolute Shrinkage and Selection Operator Regression/ (aka /Lasso Regression/) is another regularized version of Linear Model: it adds a regularization term to the cost function, but it uses the $\ell_1$ norm of the weight vector instead of half the square of the $\ell_2$ norm.
+
+An important characteristic of Lasso Regression is that it tends to eliminate the weights of the least important features by setting them to zero. This implies that Lasso Regression automatically performs feature selection and output a /sparse model/.
+
+**** Elastic Net
+
+Elastic Net is a middle ground between Ridge Regression and Lasso Regression. The regularization term is a mix of both Ridge and Lasso's regularization term, and we can control the mix ratio $r$. When $r=0$ Elastic Net is equivalent to Ridge Regression, and when $r=1$, it is equivalent to Lasso Regression.
+
+It is almost always preferable to have at least a little bit of regularization instead of using plain Linear Regression. Ridge is a good default, but if we have any reasons to suspect that only a few features are actually useful, Lasso or Elastic Net should be preferred, since they tend to reduce the useless features weights down to zero. In general, Elastic Net is preferred over Lasso, because the latter may behave erratically when the number of features is greater than the number of training instances, or when several features are strongly correlated.
+
+**** Early Stopping
+
+Iterative learning algorithms can be regularized in a very different way: we can stop the training as soon as the validation errors reaches a minimum. This is called /early stopping/.
+
+*** Logistic Regression
+
+/Logistic Regression/ is an example of a regression algorithm that can be used for classification: it is commonly used to estimate the probability that an instance belongs to a particular class. If the estimated probability is greater than 50%, then the model predicts that the instance belongs to the /positive class/ (labeled "1"), and otherwise it predicts that it does not (belongs to the /negative class/, labeled "0"). This makes it a binary classifier!
+
+**** Estimating Probabilities
+
+A Logistic Regression model computes a weighted sum of the input features, but instead of outputting the result directly, it outputs the /logistic/ of this results. The logistic is a /sigmoid function/ that outputs a number between 0 and 1.
+
+Once the Logistic Regression model has estimated the probability $\hat p = h_{\bm{\theta}}(\bm{x})$ that an instance $\bm{x}$ belongs to the positive class, it can make its prediction as so:
+
+$$
+\hat y = \begin{cases}
+    0 & \text{if}\ \hat p < 0.5 \\
+    1 & \text{if}\ \hat p \ge 0.5
+\end{cases}
+$$
+
+**** Training and Cost Function
+
+The cost function over the whole training set is the average cost over all training instances!
+
+There is no known closed-form equation to compute the value of $\bm{\theta}$ that minimizes the cost function. Good news is that the cost function is convex, so we can use Gradient Descent (or any other optimization algorithm).
+
+**** Softmax Regression
+
+The Logistic Regression can be generalized to support multiple classes directly, without the need to train and combine multiple binary classifiers. This is called /Softmax Regression/, or /Multinomial Logistic Regression/.
+
+When given an instance $\bm{x}$, the Softmax Regression model computes a score $s_k(\bm{x})$ for each class $k$, then estimates the probability of each class by applying the /softmax function/.
+
+With the scores of every class computed for an instance $\bm{x}$, we can estimate the probability $\hat p_k$ that the instance belongs to the class $k$ by running the scores through the softmax function.
+
+Cross entropy is frequently used to measure how well a set of estimated class probabilities matches the target classes.
