@@ -7,6 +7,7 @@
   - [[#03-classification][03. Classification]]
   - [[#04-training-models][04. Training Models]]
   - [[#05-support-vector-machines][05. Support Vector Machines]]
+  - [[#06-decision-trees][06. Decision Trees]]
 
 * Part I - The Fundamentals of Machine Learning
 
@@ -614,3 +615,63 @@ It is also possible to implement online kernelized SVMs. For large-scale nonline
 **** Hinge Loss
 
 The function $\max(0, 1 - t)$ is called the /hinge loss/ function. It is equal to 0 when $t \ge 1$. Its derivative (slope) is equal to -1 if $t < 1$ and 0 if $t > 1$.
+
+** 06. Decision Trees
+
+/Decision Trees/ are powerful versatile algorithms that can perform both classification and regression tasks (even multioutput tasks). They are also the fundamental components of Random Forests.
+
+Decision Trees are intuitive and often easy to interpret. Such models are often called /white box models/. Conversely, there are /black box models/, such as neural networks, which makes it hard to know what contributed to the model's predictions·
+
+*** Making Predictions
+
+Decision Trees require very little data preparation: they don't require feature scaling or centering at all.
+
+The ~gini~ attribute of a node measures its /impurity/: a node is pure if all training instances it applies to belong to the same class.
+
+Scikit-Learn uses the CART algorithm, which produces only binary trees (questions only have yes/no answers). Other algorithms such as ID3 can produce Decision Trees with nodes that have more than two children.
+
+*** Estimating Class Probabilities
+
+A Decision Tree can also estimate the probability that an instance belong to a particular class $k$. This is done by traversing the tree to find the node for this instance, and returning the ratio of training instances of class $k$ in this node.
+
+*** The CART Training Algorithm
+
+The /Classification and Regression Tree/ (CART) algorithm works by splitting the training set into two subsets using a single feature $k$ and threshold $t_k$. It searches for the pair $(k, t_k)$ that produces the purest subsets (weighted by their size).
+
+Once the algorithm has split the training set in two, it splits the subsets using the same logic recursively. It stop once it reaches the maximum predetermined depth, or if it cannot find a split that reduces impurity.
+
+The CART algorithm is a /greedy algorithm/: it greedily searches for an optimum solution, but is not guaranteed to find one. Finding the optimal tree is known to be an /NP-Complete/ problem (requires $\mathcal{O}(\exp(m))$ time), which is why we have to settle for a "reasonably good" solution.
+
+*** Computational Complexity
+
+Decision Trees tend to be approximately balanced, so traversing the tree requires going through roughly $\mathcal{O}(\log_2(m))$ nodes, which is also the overall prediction complexity.
+
+The training algorithm requires comparing all the features, which results in a training complexity of $\mathcal{O}(n \times m \log_2(m))$.
+
+*** Gini Impurity or Entropy?
+
+In Machine Learning, entropy is frequently used as an impurity measure: the entropy of a set is zero when it contains instances of only one class.
+
+When training Decision Trees, using either Gini impurity or entropy usually does not make a big difference: both will lead to similar models. Gini impurity is slightly faster to compute, so it makes for a good default. However, when they differ, Gini impurity tends to isolate the most frequent class in its own branch of the tree, while entropy tends to produce slightly more balanced trees.
+
+*** Regularization Hyperparameters
+
+Decision Trees make very few assumptions about the training data. If left unconstrained, it will adapt very well to the training data: so well, in fact, that this will often lead to overfitting. Such a model is called a /nonparametric model/, because the number of parameters is not determined prior to training, so the model structure is free to stick closely to the data. Conversely, a /parametric model/ has a predetermined number of parameters, so its degree of freedom is limited from the get-go, reducing the risk of overfitting (but increasing the risk of underfitting).
+
+To avoid overfitting the data, we need to restrict the Decision Tree's degree of freedom. Generally this is done by restricting the maximum depth of the model. There are a few other parameters that similarly restrict the shape of the Decision Tree: the minimum number of samples a node must have before it can be split, the minimum number of samples a leaf node must have, the maximum number of leaf nodes, and the maximum number of features that are evaluated for splitting at each node. All of these can be adjusted accordingly in order to regularize the model.
+
+Note: There are algorithm that work by first training the Decision Tree without restrictions, and then /pruning/ unnecessary nodes. Standard statistical tests, such as the chi-squared test, are used to estimate the probability that the improvement is purely the result of chance.
+
+*** Regression
+
+Regression is very similar to classification with Decision Trees, with one key difference: instead of predicting a class in each node, the tree predicts a value. This prediction is the average target value of all the training instances associated with a particular leaf node. This means that the predicted value for each region is always the average target value of the instances in that region.
+
+The CART algorithm described previously works very similarly as well, except that it now tries to split the training set in a way the minimizes the MSE.
+
+Just like for classification tasks, Decision Trees are also prone to overfitting the training data when dealing with regression tasks.
+
+*** Instability
+
+One problem with Decision Trees is that they love orthogonal decision boundaries (all splits are perpendicular to an axis), which makes them sensitive to training set rotation. This issue can be worked around using Principal Component Analysis (PCA), which often results in a better orientation of the training data.
+
+More generally, Decision Trees are very sensitive to small variations in the training data. Removing a single instance of the training set (e.g., an outlier) can lead to /very/ different models.
