@@ -854,12 +854,12 @@ Another approach, which can be used in entirely unsupervised contexts, is to sel
 
 *** Other Dimensionality Reduction Techniques
 
-**Random Projections**: Projects the data to a lower-dimensional space using a random linear projection. The quality of the dimensionality reduction depends on the number of instances and the target dimensionality.
+*Random Projections*: Projects the data to a lower-dimensional space using a random linear projection. The quality of the dimensionality reduction depends on the number of instances and the target dimensionality.
 
-**Multidimensional Scaling (MDS)**: Reduces dimensionality while trying to preserve the distances between the instances.
+*Multidimensional Scaling (MDS)*: Reduces dimensionality while trying to preserve the distances between the instances.
 
-**Isomap**: Creates a graph by connecting each instance to its nearest neighbors, and then reduces dimensionality while trying to preserve the /geodesic distances/ (the number of nodes on the shortest path between two nodes in a graph).
+*Isomap*: Creates a graph by connecting each instance to its nearest neighbors, and then reduces dimensionality while trying to preserve the /geodesic distances/ (the number of nodes on the shortest path between two nodes in a graph).
 
-**t-Distributed Stochastic Neighbor Embedding (t-SNE)**: Reduces dimensionality while trying to keep similar instances close to one another, and dissimilar instances apart. It is mostly used for visualization of instances in high-dimensional spaces (in particular to visualize clusters).
+*t-Distributed Stochastic Neighbor Embedding (t-SNE)*: Reduces dimensionality while trying to keep similar instances close to one another, and dissimilar instances apart. It is mostly used for visualization of instances in high-dimensional spaces (in particular to visualize clusters).
 
-**Linear Discriminant Analysis (LDA)**: A classification algorithm that learns the most discriminative axes between classes, which can then be used to define a hyperplane onto which to project the data. This approach has the benefit of keeping classes as far apart as possible, so LDA is a good technique to reduce dimensionality before feeding the data to another classification algorithm.
+*Linear Discriminant Analysis (LDA)*: A classification algorithm that learns the most discriminative axes between classes, which can then be used to define a hyperplane onto which to project the data. This approach has the benefit of keeping classes as far apart as possible, so LDA is a good technique to reduce dimensionality before feeding the data to another classification algorithm.
