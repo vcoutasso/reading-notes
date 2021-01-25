@@ -8,6 +8,7 @@
   - [[#04-training-models][04. Training Models]]
   - [[#05-support-vector-machines][05. Support Vector Machines]]
   - [[#06-decision-trees][06. Decision Trees]]
+  - [[#07-ensemble-learning-and-random-forests][07. Ensemble Learning and Random Forests]]
 
 * Part I - The Fundamentals of Machine Learning
 
@@ -675,3 +676,87 @@ Just like for classification tasks, Decision Trees are also prone to overfitting
 One problem with Decision Trees is that they love orthogonal decision boundaries (all splits are perpendicular to an axis), which makes them sensitive to training set rotation. This issue can be worked around using Principal Component Analysis (PCA), which often results in a better orientation of the training data.
 
 More generally, Decision Trees are very sensitive to small variations in the training data. Removing a single instance of the training set (e.g., an outlier) can lead to /very/ different models.
+
+** 07. Ensemble Learning and Random Forests
+
+ If we aggregate the predictions of a group of predictors, we will often get better predictions than with the best individual predictor. This is called the /wisdom of the crowd/. A group of predictors is called an /ensemble/, and this technique is called /Ensemble Learning/, and an Ensemble Learning Algorithm is called an /Ensemble method/.
+
+ As an example of an Ensemble method, we can train a groups of Decision Tree models, each on a different subset of the training data, and aggregate their outputs. Such an ensemble of Decision Trees is called a /Random forest/.
+
+*** Voting Classifiers
+
+We can aggregate the predictions of multiple classifiers and predict the class that gets the most votes. This majority-vote classifier is called a /hard-voting/ classifier.
+
+Ensemble methods work best when the predictors are as independent from one another as possible (e.g., using very different algorithms). This decreases the chance that multiple classifiers will make the same types of errors.
+
+If all classifiers are able to estimate class probabilities, such an ensemble will predict the class with the higher probability, averaged over all the individual classifiers. This is called /soft voting/. It often achieves better performance than hard voting because it gives more weight to highly confident votes (whereas in hard voting, a vote is a vote like every other).
+
+*** Bagging and Pasting
+
+Another approach would be to use the same algorithm for every predictor, but train them on different subsets of the data (yielding different predictors). When sampling is performed /with/ replacement, this method is called /bagging/. When sampling is performed /without/ replacement, it is called /pasting/.
+
+After all predictors are trained, the ensemble can make predictions by simply aggregating the predictions of all predictors. The aggregation function is typically the /statistical mode/ (the most frequent prediction). Each individual predictor has a high bias (due to the smaller sample size), but this aggregation reduces both bias and variance on the final result. Generally, the ensemble has a similar bias but a lower variance than a single predictor trained on the full original set (it makes roughly the same number of errors, but the decision boundary is less regular).
+
+These strategies allow for predictors that can all be trained in parallel, as well as predictions that can be made in parallel. This means that both bagging and pasting scale very well.
+
+**** Out-of-Bag Evaluation
+
+With bagging, due to the replacement, some instances may be sampled several times for any given predictor, while others may not be sampled at all. This means that only a portion (as $m$ grows, this approaches 63% of the instances) are samples for each predictor. The remaining instances are called /out-of-bag/ instances, and since they are never seen by the predictor, they can used for evaluation (without the need for a separate validation set!).
+
+*** Random Patches and Random Subspaces
+
+Sampling both training instances and features is called the /Random Patches/ method. Keeping all training instances but sampling features is called the /Random Subspaces/ method.
+
+Sampling features results in more predictor diversity, trading some bias for a lower variance.
+
+*** Random Forests
+
+The Random Forest algorithm introduces randomness when growing trees: it searches for the best feature among a random subset of features. This results in greater tree diversity, which trades a higher bias for a lower variance, generally yielding an overall better model.
+
+**** Extra-Trees
+
+It is possible to make trees even more random by using random thresholds for each feature, rather than searching for the best possible thresholds like regular Decision Trees do. A forest of such random trees is called an /Extremely Randomized Trees/ ensemble (or /Extra-Trees/ for short). Extra-Trees are much faster to train than regular Random Forests, because finding the best possible threshold for each feature at every node is one of the most time-consuming tasks of growing a tree.
+
+Tip: It is hard to tell in advance whether a Random Forest will perform better of worse than an Extra-Tree classifier. Generally, the only way to know is to compare them using cross-validation.
+
+*** Feature Importance
+
+Random Forests make it easy to measure the relative importance of each feature. We can measure a feature's importance by looking at how much the three nodes that use that particular feature reduce impurity on average (which is exactly what Scikit-Learn does). More precisely, it is a weighted average, where a node's weight is equal to the number of training instances that are associated with it.
+
+Therefore, Random Forests are very useful to get a quick understand of what features actually matter, and can help us with feature selection.
+
+*** Boosting
+
+/Boosting/ refers to any Ensemble method that can combine several weak learners into a strong learner. The general idea is to train various predictors sequentially, each trying to correct the errors of its predecessor. The are many boosting methods available, but the most popular ones (and by far) are /AdaBoost/ and /Gradient Boosting/.
+
+Warning: This sequential learning technique has the very important drawback of not being able to be parallelized (or at least partially).
+
+**** AdaBoost
+
+A predictor might correct its predecessor by paying more attention to the training instances that the predecessor underfitted. This is the technique used by AdaBoost.
+
+AdaBoost starts by setting the weights of all instances to $\frac{1}{m}$. A first predictor is trained with these initial weights. Every predictor has a weight associated to it as well, which is directly proportional to how accurate the predictor is. Next, AdaBoost updates the instances weights, boosting the weights of the misclassified instances. This process is repeated until the desired number of predictors is achieved (a new predictor is trained on every step), or when a perfect predictor is found.
+
+To make predictions, AdaBoost computes the predictions of all predictors, and weighs them using the respective predictor's weights. The predicted class is the one that receives the majority of weighted votes.
+
+The default base estimator of the ~AdaBoostClassifier~ class is a Decision Stump, which is a tree composed of a single decision node plus two leaf nodes.
+
+Tip: If AdaBoost is overfitting, it can be regularized by reducing the number of estimator, or more strongly regularizing the base estimator.
+
+**** Gradient Boosting
+
+Just like AdaBoost, Gradient Boosting also works by sequentially adding predictors to an ensemble, each one correcting its predecessor. The key difference is that this method tries to fit the new predictor to the /residual errors/ made by the previous predictor.
+
+This Ensemble method with Decision Trees as base predictors for regression tasks is called /Gradient Tree Boosting/, or /Gradient Boosted Regression Trees/ (GBRT). This is implemented in the ~GradientBoostingRegressor~ class.
+
+Scikit-Learns' ~GradientBoostRegressor~ supports a ~subsample~ hyperparameter, which specifies the fraction of training instances to be used for training each tree. This technique also trades a higher bias for a lower variance, and also speeds up the training considerably. This is called /Stochastic Gradient Boosting/.
+
+An optimized implementation of Gradient Boosting is available in the popular Python library XGBoost, which stands for Extreme Gradient Boosting. In fact, XGBoost is often an important component of the winning entries in ML competitions. It is definitely worth checking out.
+
+*** Stacking
+
+Stacking is based on a simple idea: instead of using trivial functions (such as hard voting) to aggregate the predictions of all predictions in an ensemble, we can train a model to perform this aggregation. The final predictor (called a /blender/, or a /meta learner/), takes the predictions of the predictors as inputs and makes the final prediction.
+
+To train a blender, a common approach is to use a hold-out set (alternatively, it is possible to use out-of-fold predictions). The predictions of the models can be used as input features to create a new training set, keeping the target values. The blender is then trained on this new training set, so it learns to predict the target values, given the previous layer's predictions.
+
+This can be extended to train several blenders, in order to get a whole layer of blenders. Unfortunately, Scikit-Learn does not support stacking directly.
