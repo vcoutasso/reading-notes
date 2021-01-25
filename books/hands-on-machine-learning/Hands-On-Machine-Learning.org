@@ -9,6 +9,7 @@
   - [[#05-support-vector-machines][05. Support Vector Machines]]
   - [[#06-decision-trees][06. Decision Trees]]
   - [[#07-ensemble-learning-and-random-forests][07. Ensemble Learning and Random Forests]]
+  - [[#08-dimensionality-reduction][08. Dimensionality Reduction]]
 
 * Part I - The Fundamentals of Machine Learning
 
@@ -760,3 +761,105 @@ Stacking is based on a simple idea: instead of using trivial functions (such as 
 To train a blender, a common approach is to use a hold-out set (alternatively, it is possible to use out-of-fold predictions). The predictions of the models can be used as input features to create a new training set, keeping the target values. The blender is then trained on this new training set, so it learns to predict the target values, given the previous layer's predictions.
 
 This can be extended to train several blenders, in order to get a whole layer of blenders. Unfortunately, Scikit-Learn does not support stacking directly.
+
+** 08. Dimensionality Reduction
+
+Large datasets with many features often make training extremely slow. Not only that, but too many features can make it much harder to find a good solution. This problem is often referred to as the /curse of dimensionality/.
+
+A possible solution to this is reducing the number of features using dimensionality reduction, which speeds up training and might turn an intractable problem into a tractable one. In some cases, reducing the dimensionality of the training data may even filter out noise, resulting in higher performance.
+
+*** The Curse of Dimensionality
+
+There is plenty of space in high dimensional spaces, which means that high-dimensional datasets are often at the risk of being very sparse: instances are likely to be far away from each other. Consequently, a new instance is also likely to be distant from all the known training instances, making predictions much less reliable. The more dimensions the training set has, the greater the risk of overfitting it!
+
+Theoretically, it would be possible to increase the size of the training set to reach a sufficient density of training instances. In practice, the number of instances required grows exponentially with the number of dimensions, making this strategy impracticable in many cases.
+
+*** Main Approaches for Dimensionality Reduction
+
+**** Projection
+
+In most real-world problems, training instances are not spread uniformly across all dimensions: they tend to lie within (or close to) a much-lower dimensional /subspace/ of the high-dimensional space. When this is the case, we can project every training instance onto this subspace in order to obtain a new, lower dimensional dataset.
+
+However, projection is not always the right approach to dimensionality reduction. The famous /Swiss roll/ toy dataset is a clear example of this.
+
+**** Manifold Learning
+
+The Swiss roll dataset is an example of a 2D /manifold/. A 2D manifold is a 2D shape that can be bent and twisted in a higher-dimensional space. More generally, a $d$-dimensional manifold is a part of an $n$-dimensional space (where $d < n$) that locally resembles a $d$-dimensional hyperplane.
+
+There are many dimensionality reduction algorithms that work by modeling the manifold on which the training instances lie. This is called /Manifold Learning/. This approach relies on the /manifold assumption/ (or /manifold hypothesis/), which holds that most real-world high-dimensional datasets lie close to a much lower-dimensional manifold (which is very often empirically observed). The manifold assumption is often accompanied by the implicit assumption that the task at hand will be simpler if expressed in the lower-dimensional space of the manifold (which is not always true!).
+
+Here is a way to think about the manifold assumption: imagine we want to artificially create handwritten digits images; the degree of freedom available to us if we were to create any image we want is dramatically higher than the degree of freedom we would have to generate only digit images. These constraints tend to squeeze the dataset into a lower-dimensional manifold.
+
+*** PCA
+
+/Principal Component Analysis/ (PCA) is the most popular dimensionality reduction algorithm. It first identifies the hyperplane that lies closest to the data, then it projects the data onto it.
+
+**** Preserving the Variance
+
+Choosing the right hyperplane is a fundamental step of PCA. The strategy here is to favor the axis that minimizes the mean square distance between the original datasets and its projection onto that axis.
+
+**** Principal Components
+
+PCA identifies the axis that accounts for the largest amount of variance in the training set. the $i^{th}$ axis is called the $i^{th}$ /principal component/ (PC) of the data.
+
+We can use /Singular Value Decomposition/ (SVD) to find these principal components: SVD can decompose the training set matrix $\rm{X}$ into the matrix multiplication of three matrices $\rm{U \Sigma V^\top}$, where $\rm{V}$ contains the unit vectors that define all the principal components.
+
+Warning: PCA assumes that the data is centered around the origin. Scikit-Learn's PCA classes take care of this for us, but other libraries may not do the same.
+
+**** Projecting Down to $d$ Dimensions
+
+With all the principal componentes identified, we can reduce the dimensionality of the dataset down to $d$ by projecting it onto the hyperplane defined by the first $d$ principal components.
+
+To project the data onto this hyperplane, we need to compute the matrix multiplication of the training set matrix $\rm{X}$ by the matrix $\rm{W}_d$, defined as the matrix containing the $d$ first columns of $\rm{V}$, as shown below:
+
+$$
+\rm{X}_{d\text{-proj}} = \rm{X}\rm{W}_d
+$$
+
+**** Explained Variance Ratio
+
+The /explained variance ratio/ indicates the proportion of the dataset's variance that lies along each principal component.
+
+**** Choosing the Right Number of Dimensions
+
+We can choose the number of dimensions that explain a sufficiently large portion of the variance using the explained variance ratio.
+
+**** PCA for Compression
+
+After we have reduced the dimensionality of a dataset using PCA, we can "decompress" the reduced dataset to its original dimensionality by applying the inverse transformation of the PCA projection. This does not give us the original data, since the projection loses a bit of information, but it will likely be close to the original data. The mean square distance between the original data and the reconstructed data is called the /reconstruction error/.
+
+**** Randomized PCA
+
+/Randomized PCA/ is a stochastic algorithm that quickly finds an approximation of the first $d$ principal components (we can use this in Scikit-Learn by setting the ~svd_solver~ hyperparameter to ~"randomized"~). It is dramatically faster than the full SVD approach when $d$ is much smaller than $n$.
+
+**** Incremental PCA
+
+/Incremental PCA/ allows us to split the training set into mini-batches and feed it one mini-batch at a time. This is especially useful for large training sets and for applying PCA online. This is implemented in the ~IncrementalPCA~ class.
+
+Alternatively, one can use NumPy's ~memmap~, which allows to manipulate large arrays stored on disk as if it were entirely in memory.
+
+*** Kernel PCA
+
+Turns out the we can also apply the kernel trick to PCA, allowing us to perform complex nonlinear projections for dimensionality reduction. This is called /Kernel PCA/ (kPCA).
+
+**** Selecting a Kernel and Tuning Hyperparameters
+
+Given that kPCA is an unsupervised learning algorithm, there is no obvious performance measure to help us select the best kernel and hyperparameter values. However, when using it for a data preparation step in a supervised learning task, we can use grid search to select the kernel and hyperparameters that lead to the best performance on the task.
+
+Another approach, which can be used in entirely unsupervised contexts, is to select the kernel and hyperparameters that yield the lowest reconstruction error. It is important to note, however, that reconstruction is not as easy as with linear PCA.
+
+*** LLE
+
+/Locally Linear Embedding/ (LLE) is a powerful /nonlinear dimensionality reduction/ technique. It works by first measuring how each training instance linearly relates to its closest neighbors, and then searching for a low-dimensional representation of the training set where these local relationships are preserved.
+
+*** Other Dimensionality Reduction Techniques
+
+**Random Projections**: Projects the data to a lower-dimensional space using a random linear projection. The quality of the dimensionality reduction depends on the number of instances and the target dimensionality.
+
+**Multidimensional Scaling (MDS)**: Reduces dimensionality while trying to preserve the distances between the instances.
+
+**Isomap**: Creates a graph by connecting each instance to its nearest neighbors, and then reduces dimensionality while trying to preserve the /geodesic distances/ (the number of nodes on the shortest path between two nodes in a graph).
+
+**t-Distributed Stochastic Neighbor Embedding (t-SNE)**: Reduces dimensionality while trying to keep similar instances close to one another, and dissimilar instances apart. It is mostly used for visualization of instances in high-dimensional spaces (in particular to visualize clusters).
+
+**Linear Discriminant Analysis (LDA)**: A classification algorithm that learns the most discriminative axes between classes, which can then be used to define a hyperplane onto which to project the data. This approach has the benefit of keeping classes as far apart as possible, so LDA is a good technique to reduce dimensionality before feeding the data to another classification algorithm.
