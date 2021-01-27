@@ -10,6 +10,7 @@
   - [[#06-decision-trees][06. Decision Trees]]
   - [[#07-ensemble-learning-and-random-forests][07. Ensemble Learning and Random Forests]]
   - [[#08-dimensionality-reduction][08. Dimensionality Reduction]]
+  - [[#09-unsupervised-learning-techniques][09. Unsupervised Learning Techniques]]
 
 * Part I - The Fundamentals of Machine Learning
 
@@ -863,3 +864,117 @@ Another approach, which can be used in entirely unsupervised contexts, is to sel
 *t-Distributed Stochastic Neighbor Embedding (t-SNE)*: Reduces dimensionality while trying to keep similar instances close to one another, and dissimilar instances apart. It is mostly used for visualization of instances in high-dimensional spaces (in particular to visualize clusters).
 
 *Linear Discriminant Analysis (LDA)*: A classification algorithm that learns the most discriminative axes between classes, which can then be used to define a hyperplane onto which to project the data. This approach has the benefit of keeping classes as far apart as possible, so LDA is a good technique to reduce dimensionality before feeding the data to another classification algorithm.
+
+** 09. Unsupervised Learning Techniques
+
+In clustering, the goal is to group similar instances together into /clusters/. It's a great tool for data analysis, customer segmentation, recommender systems, search engines, image segmentation, and more.
+
+The task of anomaly detection is about learning what "normal" data looks like, and then using this knowledge to detect abnormal instances.
+
+Density estimation involves estimating the /probability density function/ (PDF) of the random process that generated the dataset. It is commonly used for anomaly detection: instances located in low-density regions are likely to be anomalies.
+
+*** Clustering
+
+Clustering is the task of identifying similar instances and assigning them to /clusters/ or groups of similar instances. Clustering covers a wide variety of applications, including:
+
+*Customer segmentation*: This is used to cluster customers based on their purchases and activity. This is particularly useful when building /recommender systems/ to suggest content that other customers in the same cluster (group) enjoyed, for example.
+
+*Data analysis*: It can be helpful to perform clustering on a dataset, and then analyze each cluster separately.
+
+*Dimensionality reduction technique*: Once a dataset has been clustered, it is possible to measure the /affinity/ of each instance with each cluster. The affinity vector of an instance can be used to replace its feature vector, which is typically much higher-dimensional.
+
+*Anomaly Detection*: (or /outlier detection/): Any instance that has low affinity to all the clusters is likely to be an anomaly.
+
+*Semi-supervised learning*: When dealing with a dataset that only has a few labels, clustering can be performed to propagate the labels to all the instances in the same cluster.
+
+*Search engines*: Clustering can be used in search engines to search for images that are similar to a reference image. A clustering algorithm can by applied to all images in a database, so that similar images would end up in the same cluster of the reference image.
+
+*Image segmentation*: The number of different colors in a given image can be significantly reduced by clustering pixels according to their color, then replacing each pixel's color with the mean color of its cluster.
+
+**** K-Means
+
+K-Means is a simple algorithm capable of clustering datasets very quickly and efficiently. It is most suited for datasets with spherical clusters of similar sizes. It does not behave very well when the clusters have varying sizes, different densities or nonspherical shapes.
+
+In the ~KMeans~ class, the ~transform()~ method measures the distance from each instance to every centroid.
+
+The K-Means algorithm starts by randomly placing centroids, then it labels instances based on these centroids positions, and then updates the positions of the centroids with respect to the position of instances that belong to the same cluster. This process is repeated until the centroids stop moving. This algorithm is guaranteed to converge in a finite number of steps, but it may not converge to the right solution (depends on the centroid initialization).
+
+The algorithm is usually repeated multiple times with different initializations, and the best solution is kept. The model with the lowest /inertia/ (mean squared distance between each instance and its closest centroid) is considered the best model.
+
+K-Means++ introduces a smarter initialization step that tends to place centroids distant from one another. This makes the K-Means algorithm less likely to converge to suboptimal solutions.
+
+If a dataset is too large to fit in memory, Mini-batch K-Means can be used. It converges much faster than the regular K-Means, but its inertia is generally worse (especially with high number of clusters).
+
+The K-Means algorithm requires setting the number of centroids it must find, but this choice is not always obvious (especially when dealing with real-world datasets). To help with this, we can run the algorithm for various values of $k$, compute the /silhouette score/ (the mean /silhouette coefficient/ over all instances), and use the value of $k$ that maximizes this score.
+
+We can obtain a very informative visualization of the performance of the algorithm on a given dataset by plotting every instance's silhouette coefficient, sorted by the cluster they are assigned to and by the value of the coefficient. This is called a /silhouette diagram/, and helps us identify promising values of $k$.
+
+Tip: It is important to scale the input features before running K-Means. Although scaling does not guarantee that all the clusters will be nice and spherical, it generally improves performance.
+
+**** Clustering for Image Segmentation
+
+/Image segmentation/ is the task of partitioning an image into multiple segments. There are various kinds of image segmentation:
+
+*Semantic segmentation*: All pixels that are part of the same object type get assigned to the same segment.
+
+*Instance segmentation*: All pixels that are part of the same individual object are assigned to the same segment.
+
+*Color segmentation*: All pixels are assigned to the same segment if they have a similar color.
+
+**** DBSCAN
+
+This clustering algorithm defines clusters as continuous regions of high density, and is capable of identifying any number of clusters of any arbitrary shape. It works well if all clusters are dense enough and if they are well separated by low-density regions.
+
+It is robust to outliers and only has two hyperparameters.
+
+There is a hierarchical variant of this algorithm called /Hierarchical DBSCAN/, which is implemented in the scikit-learn-contrib project.
+
+**** Other Clustering Algorithms
+
+*Agglomerative clustering*: This algorithm builds a hierarchy of clusters from the bottom up. This approach scales well with large numbers of instances or clusters. The algorithm is capable of capturing clusters of various shapes, and it produces a very informative cluster tree.
+
+*BIRCH*: BIRCH builds a tree structure containing just enough information to assign each new instance to a cluster, without having to store all the instances in the tree. The advantage of this approach is that it uses limited memory while handling huge datasets.
+
+*Mean-Shift*: This algorithm is capable of finding any number of clusters of any shape with very few hyperparameters to tune (it relies on local density estimation). Unlike DBSCAN, Mean-Shift tends to chop clusters into pieces when they have internal density variation. Due to its computational complexity, it is not suited for large datasets.
+
+*Affinity propagation*: It uses a voting system, where each instance vote for similar instances to be their representatives. Once the algorithm converges, each representative and its voters form a cluster. It can detect any number of clusters of different sizes, but due to its computational complexity, it is not suited for large datasets.
+
+*Spectral clustering*: This algorithm uses a similarity matrix between the instances to create a low-dimensional embedding from which, then it used another clustering algorithm in this low-dimensional space. The algorithm is capable of capturing complex cluster structures, but it does not scale well to large numbers of instances, and it does not behave well when clusters have very different sizes.
+
+*** Gaussian Mixtures
+
+A /Gaussian Mixture Model/ (GMM) is a generative model (new samples can be drawn from it) that assumes that the instances were generated from a mixture of several Gaussian distributions (we just don't know their parameters). It is possible to estimate the density of the model at any given location.
+
+This method relies on the /Expectation-Maximization/ (EM) algorithm (which has many similarities with K-Means). EM first assigns instances to clusters (/expectation step/), then it updates the clusters (/maximization step/), and this process is repeated until convergence. In the context of clustering, EM can be thought of as a generalization of K-Means that, in addition to finding the clusters centers, can also find their size, shape and orientation, as well as their relative weights. Unlike K-Means, EM uses soft cluster assignments. EM is also sensitive to its initial condition, which can lead to poor solutions, so its best to run it multiple times.
+
+EM struggles to converge to the optimal solution when there are many dimensions, many clusters, or few instances. We can alleviate this by limiting the number of parameters the algorithm has to learn. One way to achieve this is by imposing constraints on the covariance matrix (~covariance_type~ hyperparameter).
+
+**** Anomaly Detection Using Gaussian Mixtures
+
+Anomaly detection is the task of detecting instances that deviate strongly from the norm. These instances are called /anomalies/, or /outliers/, while the normal instances are called /inliers/. Any instance located in a low-density region can be considered an anomaly. If the density of a region is lesser than a given threshold, it is considered to be low-density.
+
+Outlier detection is often used to clean up a dataset.
+
+If there are too many outliers on a dataset, this will bias the model's view of what is "normal". If this happens, the model may be trained once to detect and remove the most extreme outliers, and then trained again on the cleaned-up dataset. Another option is to use robust covariance estimation methods (see the ~EllipticEnvelope~ class).
+
+**** Selecting the Number of Clusters
+
+Neither the inertia or the silhouette score are reliable when the clusters are not spherical or have different sizes, hence they are not very useful to select the appropriate number of clusters when using Gaussian mixtures. Instead, the model that minimizes a /theoritical information criterion/ such as the /Bayesian information criterion/ (BIC) or the /Akaike information criterion/ (AIC) can be used.
+
+Both the BIC and the PIC penalize models that have more parameters to learn (e.g., more clusters), and reward models that fit the data well. They often end up selecting the same model. When they differ, the model selected by BIC tends to be simpler, but tends to not fit the data quite as well (especially true for larger datasets).
+
+**** Bayesian Gaussian Mixture Models
+
+The ~BayesianGaussianMixture~ class is capable of giving weights equal (or close) to zero to unnecessary clusters. Setting the number of clusters of the model to be greater than the actual number of clusters can lead to a model that eliminates the unnecessary clusters automatically.
+
+**** Other Algorithms for Anomaly and Novelty Detection
+
+*PCA*: The reconstruction error of an anomaly is usually much larger than the reconstruction error of a normal instance. This can be used as a simple an efficient anomaly detection approach.
+
+*Fast-MCD*: This algorithm (implemented by the ~EllipticEnvelope~ class) assumes that the normal instances are generated from a single Gaussian distribution, and that the model is contaminated with outliers that were not generated from this Gaussian distribution. When the algorithm estimates the parameters of the distribution, it ignores the instances that are most likely outliers.
+
+*Isolation Forest*: This algorithm builds a Random Forest in which the Decision Trees are grown randomly. The datasets gradually gets chopped into pieces, until all instances end up isolated from the other instances. Anomalies are usually far from the normal instances, so across all the Decision Trees they tend to get isolated in fewer steps.
+
+*Local Outlier Factor* (LOF): Compares the density of instances around a given instance to the density around its neighbors. An anomaly tends to be more isolated than its $k$ nearest neighbors.
+
+*One-Class SVM*: The one-class SVM algorithm tries to separate the instances in high-dimensional space from the origin (which correspond to finding a small region that encompasses all the instances in the original space). If a new instance does not fall within this region, it is an anomaly.
