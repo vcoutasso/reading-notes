@@ -11,6 +11,8 @@
   - [[#07-ensemble-learning-and-random-forests][07. Ensemble Learning and Random Forests]]
   - [[#08-dimensionality-reduction][08. Dimensionality Reduction]]
   - [[#09-unsupervised-learning-techniques][09. Unsupervised Learning Techniques]]
+- [[#part-ii---neural-networks-and-deep-learning][Part II - Neural Networks and Deep Learning]]
+  - [[#10-introduction-to-artificial-neural-networks-with-keras][10. Introduction to Artificial Neural Networks with Keras]]
 
 * Part I - The Fundamentals of Machine Learning
 
@@ -978,3 +980,191 @@ The ~BayesianGaussianMixture~ class is capable of giving weights equal (or close
 *Local Outlier Factor* (LOF): Compares the density of instances around a given instance to the density around its neighbors. An anomaly tends to be more isolated than its $k$ nearest neighbors.
 
 *One-Class SVM*: The one-class SVM algorithm tries to separate the instances in high-dimensional space from the origin (which correspond to finding a small region that encompasses all the instances in the original space). If a new instance does not fall within this region, it is an anomaly.
+
+* Part II - Neural Networks and Deep Learning
+
+** 10. Introduction to Artificial Neural Networks with Keras
+
+The inspiration to build intelligent machines comes from the brain's architecture: /artificial neural networks/ (ANN) is a Machine Learning model inspired by the networks of biological neurons found in our brains. Anna are also the very core of Deep Learning!
+
+*** From Biological to Artificial Neurons
+
+Artificial Neural Networks have quite a lot going for them, hence the wave of interest, which is likely here to say this time. Here are a few good reasons for that:
+
+- ANNs frequently outperform other ML algorithms on very large and complex problems.
+- Due to the huge increase in computing power since the 1990s, it is now possible to train large neural networks in a reasonable amount of time.
+- The training algorithms have improved to be better and more efficient.
+- Some of the theoretical limitations of ANNs, which were a reason of concern, turned out to be benign in practice. For example, the training algorithms rarely get stuck in local optima.
+
+**** Logical Computation with Neurons
+
+A very simple model of the biological neuron, known as an /artificial neuron/, was proposed in the 40s by McCulloch and Pitts: it has one or more binary inputs and one binary output. The artificial neuron activates its output when more than a certain number of its inputs are active.
+
+The original paper showed that even with such a simplified model, it is possible to build networks of artificial neurons capable of computing any logical proposition.
+
+**** The Perceptron
+
+One of the simplest ANN architectures was created by Frank Rosenblatt in 1957: the /Perceptron/. It is based on a different artificial neuron/ called a /threshold logic unit/ (TLU), or /linear threshold unit/ (LTU). Instead of binary values, the inputs are number, and each input connection is associated with a weight. The TLU computes a weighted sum of its inputs $z = \rm{x}^\top \rm{w}$, then applies a /step function/ to that sum and outputs the result: $h_{\rm{w}}(\rm{x}) = \text{step}(z)$
+
+The most common step function used in Perceptrons is the /Heaviside step function/, but sometimes the sign function is used instead:
+
+$$
+\begin{align*}
+\text{heaviside} (z) = \begin{cases}
+    0 & \text{if}\ z < 0 \\
+    1 & \text{if}\ z \ge 0
+\end{cases} &&
+\text{sign} (z) = \begin{cases}
+    -1 & \text{if}\ z < 0 \\
+    0 & \text{if}\ z = 0 \\
+    1 & \text{if}\ z > 0
+\end{cases}
+\end{align*}
+$$
+
+A single TLU can be used for simple linear binary classification: if the linear combination of the inputs exceeds a threshold, it outputs the positive class, otherwise it outputs the negative class.
+
+A Perceptron is composed of a single layer of TLUs, with each connected to all the inputs. The layer is called a /fully connected layer/ (or a /dense layer/) when all the neurons in it are connected to every neuron in the previous layer. The input neurons form the /input layer/. An extra bias feature is generally added, which is typically represented using a special type of neuron called a /bias neuron/.
+
+Note: The name Perceptron is sometimes used to refer to a tiny network with a single TLU.
+
+The Hebb's rule (or /Hebbian learning/) says that the connection weight between two neurons tends to increase when they fire simultaneously. Perceptrons are trained using a variant of this rule that takes into account the error made by the network and it makes a prediction, which reinforces connections that help reduce the error.
+
+The decision boundary of each output neuron is linear, so Perceptrons are incapable of learning complex patterns, which renders them incapable of solving some trivial problems such as the /Exclusive OR/ (XOR) classification problem.
+
+Scikit-Learn provides a ~Perceptron~ class that implements a single-TLU network. Note that Perceptrons make predictions based on a hard threshold.
+
+Fortunately, we can eliminate some of the limitations of Perceptrons by stacking multiple of them. The resulting ANN is called a /Multilayer Perceptron/ (MLP).
+
+**** The Multilayer Perceptron and Backpropagation
+
+A MLP is composed of one input layer, one or more layer or TLU, called /hidden layers/, and on final layer of TLUs called the /output layer/. Every layer except the output layer includes a bias neuron and is fully connected to the next layer. A network in which the signal flows only from the inputs to the outputs is called a /feedforward neural network/ (FNN).
+
+When an ANN contains a deep (the definition if "deep" is quite fuzzy) stack of hidden layers, it is called a /deep neural network/ (DNN).
+
+The /backpropagation/ algorithm was introduced in 1986, and it is still used today to train MLPs. It is basically Gradient Descent with an efficient technique for computing the gradients automatically (this is called /automatic differentiation/, or /autodiff/): in just two passes through the network (one forward, one backward), the backpropagation algorithm is able to compute the gradient of the network's error with regard to every single parameter. With the gradients computed, it just performs a regular Gradient Descent step, and the whole process is repeated until the network converges.
+
+Let's explore the algorithm in a bit more detail this time:
+
+- It handles on mini-batch at a time, and it goes through the full training set multiple times. Each pass is called an /epoch/.
+- Each mini-batch is passed to the input layer, which sends it to the first hidden layer, where the output of all neurons is computed for every instance in the mini-batch. The result is passed to the next layer, its output is computed and so on until we get to the output layer. This is what's called the /forward pass/.
+- After that, the algorithm measures the network's output error using some loss function that compares the desired output and the actual output of the network.
+- Next, it computes how much each output connection contributed to the error analytically by applying the /chain rule/.
+- The algorithm measures how much of these error contributions came from each connection in the layer below (using the chain rule again), working backward until the input layer.
+- Lastly, the algorithm performs a Gradient Descent step to tweak all the connection weights in the network.
+
+In short: for each training instance, the backpropagation algorithm makes a prediction (forward pass) and measures the error, then goes through each layer in reverse to measure the error contribution from each connection (reverse pass), and finally tweaks the connection weights to reduce error with a Gradient Descent step.
+
+Warning: It is important to initialize all hidden layers' connection weights randomly, or else training will fail.
+
+A key change was made to the MLP architecture in order for this algorithm to work properly: the step function was replaced with the logistic (sigmoid) function. This was essential because the step function has no gradient to work with (it contains only flat segments, and Gradient Descent cannot move on a flat surface), while the logistic function has a well-defined nonzero derivative everywhere.
+
+Note that the backpropagation algorithm works well with many other activation functions, not just the logistic function. These are two popular choices:
+
+The /hyperbolic tangent/ function is also S-shaped, continuous and differentiable, but its output value ranges from -1 to 1. This range tends to make the layer's output more or less centered around 0 at the beginning of training, which often helps speed up convergence.
+
+The Rectified Linear Unit function (ReLU) is continuous but not differentiable at $z = 0$. In practice, however, it works very well and is fast to compute, so it has become the default. The fact that it does not have a maximum output value helps reduce some issues during Gradient Descent.
+
+**** Regression MLPs
+
+MLPs can be used for regression tasks! To predict a single value, it needs just a single output neuron, which outputs the predicted value. For multivariate regression, one output neuron per output dimension is needed.
+
+In general, not all activation function are appropriate for regression tasks: it's usually more appropriate to use one where the MLP is free to output any range of values. The ReLU can be used in the output layer to guarantee that the output will always be positive. Alternatively, /softplus/ can be used as well, which is a smooth variant of ReLU. To guarantee that the predictions will fall within a given range of value, the logistic function (or the hyperbolic tangent) can be used and then scaled to the appropriate ranges.
+
+The loos function used during training is typically the mean squared error, but the mean absolute error might be preferred instead if there are lots of outliers in the training set. The Huber loss, which is a combination of both, is a good option as well (it makes the MLP less sensitive to outliers than the MSE, and converges faster than the mean absolute error).
+
+The following table summarizes the typical architecture of a regression MLP:
+
+| *Hyperparameter*           | *Typical value*                                                                    |
+|----------------------------+------------------------------------------------------------------------------------|
+| # input neurons            | One per input feature                                                              |
+| # hidden layers            | Depends on the problem (typically 1 to 5)                                          |
+| # neurons per hidden layer | Depends on the problem (typically 10 to 100)                                       |
+| # output neurons           | 1 per prediction dimension                                                         |
+| Hidden activation          | ReLU (or SELU)                                                                     |
+| Output Activation          | None, or ReLU/softplus (if positive outputs) or logistic/tanh (if bounded outputs) |
+| Loss function              | MSE or MAE/Huber (if outliers)                                                     |
+
+
+**** Classification MLPs
+
+MLPs can be used for classification tasks as well! For a binary classification problem, we just nee da single output neuron using the logistic activation function, which will output a number that can be interpreted as the estimated probability of the positive class.
+
+For multilabel binary classification tasks, there would be one output neuron dedicated to each positive class.
+
+If the classes are exclusive (for example in the MNIST dataset), the MLP would need to have one output neuron per class, and the softmax activation function should be used for the whole output layer to ensure that all th estimated probabilities are between 0 and 1 add that they up to 1.
+
+For the loss function, the cross-entropy loss is generally a good choice, since we are predicting probability distributions.
+
+The following table summarizes nicely the typical architecture of a classification MLP:
+
+| *Hyperparameter*        | *Binary classification* | *Multilabel binary classification* | *Multiclass classification* |
+|-------------------------+-------------------------+------------------------------------+-----------------------------|
+| Input and hidden layers | Same as regression      | Same as regression                 | Same as regression          |
+| # output neurons        | 1                       | 1 per label                        | 1 per class                 |
+| Output layer activation | Logistic                | Logistic                           | Softmax                     |
+| Loss function           | Cross entropy           | Cross entropy                      | Cross entropy               |
+
+*** Implementing MLPs
+
+When dealing with sparse labels (e.g., just a target class index), the ~sparse_categorical_crossentropy~ should be used if the class are exclusive. If instead there is a probability per class for each instance (e.g., one-hot encoding), than we should use the ~categorical_crossentropy~ instead.
+
+If the problem is a binary classification problem, the ~sigmoid~ activation function should be used with the ~binary_crossentropy~ loss function.
+
+Tip: When plotting the training curve, it should be shifted by half an epoch to the left.
+
+Remember to resist the temptation to tweak the hyperparameters based on the test set performance, or else the estimate of the generalization will be too optimistic (and most likely unrealistic).
+
+**** Complex Models
+
+One example of a nonsequential neural network is the /Wide & Deep/ neural network: it connects all parts of the inputs directly to the output layer. This architecture makes it possible for the neural network to learn both deep patterns (using the deep path), and simple rules (using the short path). A regular MLP forces all the data to flow through the full stack of layers, which might result in simple patterns in the data end up being distorted by this sequence of transformations.
+
+*** Fine-Tuning Neural Network Hyperparameters
+
+The flexibility of neural networks is also one of their main drawback: there are many hyperparameters to tweak.
+
+Optimizing hyperparameters is usually a difficult and time-consuming task. Here are some Python libraries that can help with this process:
+
+- *Hyperopt*
+- *Hyperas*, *kopt*, or *Talos*
+- *Keras Tuner*
+- *Scikit-Optimize (skopt)*
+- *Spearmint*
+- *Hyperband*
+- *Sklearn-Deap*
+
+**** Number of Hidden Layers
+
+For many problems we can start with just one or two hidden layers and the neural network will work just fine. For more complex problems, we can ramp up the number of hidden layers until the model starts to overfit the training set.
+
+Instead of randomly initializing the weights and biases of the first few layers of a new neural network, we can initialize them to the values of the weights and biases of the lower layers of a network that has already been trained to solve a similar problem. This way the new network will not have to learn all the low-level structures from scratch: it will only have to learn the higher-level structures problem to the specific problem we are trying to solve. This technique is called /transfer learning/.
+
+We rarely have to train neural networks from scratch: it is much more common to reuse parts of a pretrained state-of-the-art network that performs a similar task. Training will then be much faster and require much less data.
+
+**** Number of Neurons per Hidden Layer
+
+The number of neurons in the input and output layers is determined by the type of input and output the task requires.
+
+As for the hidden layers, it used to be common to size them to form a pyramid, with fewer and fewer neurons at each layer. This practice has been abandoned because it seems that using the same number of neurons in all hidden layers perform just as well in most cases, if not better. That said, depending on the dataset, it can be helpful to make the first hidden layer bigger than the others.
+
+Just like the number of hidden layers, the number of neurons can be gradually increased until the network starts overfitting. However, in practice is often simpler and more efficient to pick a model with more layers and neurons that actually needed, then use early stop and other regularization techniques to prevent it from overfitting.
+
+Tip: In general, it is better to increase the number of layers instead of the number of neurons per layer.
+
+**** Hyperparameters
+
+Let's briefly talk about the most important hyperparameters, as well as tips on how to set them:
+
+*Learning rate*: This is arguably the most important hyperparameter. The optimal learning rate is about half the maximum learning rate (the learning rate above which the training algorithm diverges). One way to find a good learning rate is to train a model starting with a very low learning rate, and gradually increase it up to a very large value. In the plot of the loss as a function of the learning rate, the optimal learning rate will be a bit lower than the point at which the loss starts to climb (typically about 10 times lower than that point).
+
+*Optimizer*: Using a better optimized than Mini-batch Gradient Descent is also quite important. This will be discussed in more details in the next chapter.
+
+*Batch size*: The batch size can have a significant impact on a model's performance and training time. Using large batch sizes has the benefit that hardware accelerators like GPUs can process them more efficiently. This is why many researches recommend using the largest batch size that can fit in GPU RAM. However, it's not that simple: large batch sizes may lead to training instabilities, especially at the beginning of the training, and the resulting model may not be able to generalize as well as a model trained with a small batch size. With this in mind, one strategy is to use a large batch size, using learning rate warmup, and if training is unstable or the performance is disappointing, try using a smaller batch size instead.
+
+*Activation function*: In general, the ReLU activation function is a good default for all hidden layers. For the output layer, it depends on the task at hand.
+
+*Number of iterations*: In most cases this parameter does not need to be tweaked: just use early stop instead.
+
+Tip: The optimal learning rate depends on the other hyperparameters (especially the batch size), so if the hyperparameters are modified, the learning rate must be updated as well.
+
+For more best practices regarding tuning neural network hyperparameters, check out this [[https://arxiv.org/abs/1803.09820][excellent paper]] by Leslie Smith.
