@@ -13,6 +13,7 @@
   - [[#09-unsupervised-learning-techniques][09. Unsupervised Learning Techniques]]
 - [[#part-ii---neural-networks-and-deep-learning][Part II - Neural Networks and Deep Learning]]
   - [[#10-introduction-to-artificial-neural-networks-with-keras][10. Introduction to Artificial Neural Networks with Keras]]
+  - [[#11-training-deep-neural-networks][11. Training Deep Neural Networks]]
 
 * Part I - The Fundamentals of Machine Learning
 
@@ -1168,3 +1169,252 @@ Let's briefly talk about the most important hyperparameters, as well as tips on 
 Tip: The optimal learning rate depends on the other hyperparameters (especially the batch size), so if the hyperparameters are modified, the learning rate must be updated as well.
 
 For more best practices regarding tuning neural network hyperparameters, check out this [[https://arxiv.org/abs/1803.09820][excellent paper]] by Leslie Smith.
+
+** 11. Training Deep Neural Networks
+
+*** The Vanishing/Exploding Gradients Problems
+
+Remember that the backpropagation algorithm works by going from the output layer to the input layer, propagating the error gradient along the way.
+
+Unfortunately, gradients often get smaller and smaller as the algorithm progresses down to the lower layers. As a result, the Gradient Descent step leaves the lower layers' connection weights virtually unchanged, and training may never converge to a good solution. This is called the /vanishing gradients/ problem. The opposite can happen in some cases as well: the gradients can grow bigger and bigger until layers get huge weight updates and the algorithm diverges. This is the /exploding gradients/ problem. More generally, we can see that different layers may learn at widely different speeds.
+
+Considering the logistic activation function, we can see that when inputs become large, the function saturates at 0 or 1, with a derivative very close to 0. This essentially means that there is virtually no gradient to be propagated back through the network, and the little gradient that exists ends up being diluted as backpropagation progresses, leaving nothing for the lower layers.
+
+**** Glorot and He Initialization
+
+Glorot and Bengio proposed a way to significantly alleviate the unstable gradients problem. For the signal to flow properly, the authors argue that the variance of the outputs of each layers must be equal to the variance of its inputs, and that the gradients need to have equal variance before and after flowing through a layer in the reverse direction. It is not possible to guarantee both unless the layer has an equal number of inputs and neurons (/fan-in/ and /fan-out/), but the authors proposed a good compromise that works very well in practice: the connection weights of each layer must be initialized randomly, but in a particular way, as described by a equation. This initialization strategy is called /Xavier initialization/ or /Glorot initialization/.
+
+Using Glorot initialization can speed up training considerably, and it is one of the tricks that lead to the success of Deep Learning.
+
+There are similar strategies for different activation functions. The initialization strategy for the ReLU activation (and its variants) is sometimes called /He initialization/. The SELU activation should be used with LeCun initialization.
+
+| *Initialization* | *Activation functions*        |
+|------------------+-------------------------------|
+| Glorot           | None, tanh, logistic, softmax |
+| He               | ReLU and variants             |
+| LeCun            | SELU                          |
+
+Keras uses Glorot initialization with a uniform distribution.
+
+**** Nonsaturating Activation Functions
+
+One of the insights in the 2010 paper by Glorot and Bengio was that the problems with unstable gradients were in part due to a poor choice of activation function.
+
+The ReLU activation function behaves much better than the logistic activation function in deep neural networks, but it is not perfect. It suffers from a problem known as the /dying ReLUs/: some neurons effectively "die" during training (they will output only 0). This happens when the weights of a neuron get tweaked in such a way that the weighted sum of int inputs are negative for all instances in the training set. In this scenario, the neuron will only output zeros, and Gradient Descent will not affect it anymore because the gradient of the ReLU function is zero when its input is negative.
+
+This problem can be solved by using a variant of the ReLU function, such as the /leaky ReLU/. A 2015 paper compared several variants of ReLU and concluded that the leaky variants always outperformed the strict ReLU activation function.
+
+Another 2015 paper proposed a new activation function called the /exponential linear unit/ (ELU) that outperformed all the ReLU variants in the authors' experiments: training time was reduced, and the neural network performed better on the test set. The ELU activation functions looks like the ReLU function, but it takes on negative values when $z < 0$, which helps alleviate the vanishing gradients problem. It also has a nonzero gradient for $z < 0$, which avoids the dead neurons problem.
+
+The main drawback of ELU is that it is slower to compute than the ReLU and its variants.
+
+A 2017 paper introduced the Scaled ELU (SELU) activation function. The authors showed that a neural network composed exclusively of a stack of dense layers, with all hidden layers using the SEU activation function, is capable of /self-normalization/: the outputs of each layer tends to preserve a mean of 0 and a standard deviation of 1 during training, which solves the vanishing/exploding gradients problem. However, there are a few conditions for self-normalization to happen (see the book/paper for more details).
+
+Tip: Which activation function to use? In general SELU > ELU > leaky ReLU (and its variants) > RELU > tanh > logistic. If the network's architecture prevents it from self-normalizing, then ELU may perform better than SELU. If runtime latency is a concern, leaky ReLU may be preferred. If there is plenty of time and computational resources, one can use cross-validation to evaluate other activation functions, such as RReLU if the network is overfitting, or PReLU if the training set is huge. Note that because ReLU is the most used activation function, many libraries and hardware accelerators provide ReLU-specific optimizations, so ReLU might still be the best choice if speed is the priority.
+
+**** Batch Normalization
+
+The usage of He initialization along with ELU (or any variant of ReLU) can significantly reduce the danger of vanishing/exploding gradients at the beginning of training, but it does not guarantee that they won't come back /during/ training!
+
+A technique called /Batch Normalization/ (BN), proposed in a 2015 paper, addresses these problems. This technique consists of adding an operation in the model just before or after the activation function of each hidden layer. This operation simply zero-centers and normalizes each input, then scales and shifts the result using two new parameter vectors per layer (one for scaling and the other for shifting). Essentially, the operations allows the model to learn the optimal scale and mean of each of the layer's inputs. In many cases, adding a BN layers as the very first layer of a neural network satisfies the need to standardize the training set.
+
+Ioffe and Szegedy demonstrated that Batch Normalization considerably improved all the deep neural networks they experimented with, leading to a huge improvement in the ImageNet classification task. The vanishing gradients problem was strongly reduced, to the point that even using saturating activation functions would not trigger it. The resulting networks were also much less sensitive to the weight initializations. The authors were able to use larger learning rates as well, significantly speeding up the learning process.
+
+Batch Normalization acts like a regularizer, reducing the need for other regularization techniques. However, it does add some complexity to the model, as well as a runtime penalty: the network makes slower predictions due to the extra computations required at each layer. Fortunately, it is often possible to fuse the BN layer with the previous layer, after training, thereby avoiding the runtime penalty.
+
+Note: Training is slower when using Batch Normalization, but this is usually counterbalanced by the fact that convergence is much faster. All in all, /wall time/ will usually be shorter.
+
+The authors of the BN paper argued in favor of adding the BN layers before the activation functions, rather than after. The debate about which is preferable usually depends on the task, so it's best to experiment with this and see what works best.
+
+Batch Normalization has become one of the most-used layers in deep neural networks, to the points that it is often omitted in the diagrams, as it is assumed that BN is added after every layer. This assumption may change with a recent novel weight initialization technique called /fixed-update/ (fixup), which was used to train a very deep neural network without BN, achieving state-of-the-art performance on complex image classification tasks. This is bleeding-edge research , so it might need some more confirmation before replacing BN, but it might be worth checking out.
+
+**** Gradient Clipping
+
+Another popular technique used to mitigate the exploding gradients problem is to clip the gradients during backpropagation so that they never exceed some threshold. This technique is called /Gradient Clipping/. It is most often used in recurrent neural networks, as Batch Normalization is tricky to use with RNNs. For other types of networks, BN is usually sufficient.
+
+There are two kinds of clipping: by value and by norm.
+
+Tip: It is possible to track the size of the gradients using TensorBoard.
+
+*** Reusing Pretrained Layers
+
+Instead of training a very large DNN from scratch, its usually better to find an existing neural network that accomplishes a similar task to the one that needs to be tackled, reusing the lower layers of this trained network. This is called /transfer learning/. Besides speed up training considerably, it also requires significantly less training data.
+
+The upper hidden layers of the original model are less likely to be as useful as the lower layers (the high-level features may be widely different for the two problems). There needs to be a compromise to find the right number of layers to reuse. Generally, the more similar the tasks are, the more layers can be reused (starting with the lower layers). For very similar tasks, keeping all hidden layers and just replacing the output layer might work fine.
+
+Its usually better to freeze all the reused layers first, then train the model to see how it performs. After that, try unfreezing one or two of the top hidden layers to let backpropagation tweak them and compare the performance. The more training data available there is, the more layers can unfrozen. It is useful to reduce the learning rate every time the reused layers are unfrozen: this will avoid wrecking their fine-tuned weights.
+
+If the performance is still not good enough, and there is not much training data to work with, try dropping the top hidden layers and freezing all the remaining hidden layers again. Iterate until the right number of layers to reuse is found. If there is plenty of data, try replacing the top hidden layers instead of dropping them, and even adding more hidden layers might help.
+
+**** Transfer Learning with Keras
+
+Retraining the model without freezing the reused layers might wreck the reused weights (the new layers are initialized randomly, so it will make large errors, at least during the first few epochs). This can be avoided by freezing these reused learning during the very first few epochs, giving the new layers some time to learn reasonable weights.
+
+Note: Always compile the model after freezing or unfreezing layers.
+
+Transfer learning does not work very well with small dense networks, presumably because they learn few patterns, and dense networks learn very specific patterns. It works best with deep convolutional neural networks, which tend to learn feature detectors that are much more general.
+
+**** Unsupervised Pretraining
+
+If there is plenty of unlabeled training data, it can be used to train an unsupervised model, such as an autoencoder or a generative adversarial network. Then, the lower layers of such unsupervised model can be reused, so that the output layer for the task can be added on top, and the final network can be fine-tuned using supervised learning. This technique is called unsupervised pretraining.
+
+Unsupervised pretraining was the norm for deep nets when the vanishing problem was still a big deal. It is still a good option when the task to solve is complex, there is no model to be reused, and little labeled training data but plenty of unlabeled training data is available.
+
+**** Pretraining on an Auxiliary Task
+
+If there is not much labeled data, one last option is to train a first neural network on an auxiliary task for which obtaining or generating labeled data is easier, then reuse the lower layers of this network for the actual task. Ideally, the first neural network's layers should learning feature detectors that will be useful for the second neural network.
+
+Note: /Self-supervised learning/ is when the labels are automatically generated from the data itself, then a model is trained on this resulting dataset using supervised learning techniques. This approach requires no human intervention for labeling, so it is classified as a form of unsupervised learning.
+
+*** Faster Optimizers
+
+All the optimization techniques discussed here rely on the /first-order partial derivatives (Jacobian)/. The optimization literature also contains great algorithms based on the /second-order partial derivatives (Hessians)/. Unfortunately, these algorithms are hard to apply to deep neural networks because there are $n^2$ Hessians per output ($n$ is the number of parameters), as opposed to just $n$ Jacobians per output.
+
+Warning: Adaptive optimization methods are often great, converging to good solutions reasonably fast. However, it's been shown that they can also lead to solutions that generalize poorly on some datasets. When the performance of the model is poor, try using plain Nesterov Accelerated Gradient instead. Also, it is always a good practice to check latest research, because it moves pretty fast.
+
+**** Momentum Optimization
+
+Recall that Gradient Descent updates the weights $\rm{\theta}$ by subtracting the gradient of the cost function $J(\rm{\theta})$ with regard to the weights $(\nabla_{\rm{\theta}}J(\rm{\theta}))$ multiplied by the learning rate $\eta$. The equation is $\rm{\theta} \leftarrow \rm{theta} - \eta \nabla_{\rm{\theta}}J(\rm{\theta})$. It does not care what the earlier gradients were: if the local gradient is tiny, it goes very slowly.
+
+Momentum optimization, on the other hand, does care about the previous gradients: at each iteration, it subtracts the local gradient from the /momentum vector/ $\rm{m}$, and it updates the weights by adding this momentum vector. Essentially, the gradient is used for acceleration, not for speed. The algorithm introduces a new hyperparameter $\beta$, called the /momentum/, to simulate a friction mechanism to prevent the momentum from growing too large.
+
+Momentum optimization can be multiple times faster than regular Gradient Descent. This allows momentum optimization to escape from plateaus much faster. While Gradient Descent goes down a steep slope quite fast, but takes a very long time to go down the valley, momentum optimization rolls down the valley faster and faster until it reaches the bottom. Momentum optimization can be especially useful in DNNs that don't use Batch Normalization, since the upper layers will often end up having inputs with very different scales. It can also help roll past local optima.
+
+Note: Due to the momentum, the optimizer may overshoot a bit, come back, than overshoot again, and oscillate like this many times before stabilizing. This is one of the reasons it's good to have a bit of friction in the system: it gets rid of these oscillations, thus speeding up convergence.
+
+Momentum optimization has the drawback of introducing yet another hyperparameter to tune. However, the momentum value of $0.9$ usually works well in practice in most cases, and it is almost always faster than regular Gradient Descent.
+
+**** Nesterov Accelerated Gradient
+
+A small variant to momentum optimization, proposed in 1983, is almost always faster than vanilla momentum optimization. The /Nesterov Accelerated Gradient/ (NAG) method (or /Nesterov momentum optimization/), measures the gradient of the cost function slightly ahead in the direction of the momentum, at $\rm{\theta} + \beta\rm{m}$ (instead of at the local position $\rm{\theta})$. The Nesterov update generally ends up slightly closer to the optimum. These small improvements add up and NAG ends up being significantly faster than regular momentum optimization.
+
+**** AdaGrad
+
+The /AdaGrad/ algorithm is able to correct its direction earlier to point a bit more toward the global optimum by scaling down the gradient vector along the steepest dimensions.
+
+In short, this algorithm decays the learning rate, but it does so faster for steep dimensions. This is called an /adaptative learning rate/. It helps point the resulting updates more directly toward the global optimum, and has the additional benefit of requiring much less fine tuning of the learning rate hyperparameter $\eta$.
+
+AdaGrad frequently performs well for simple quadratic problems, but it often stops too early when training neural networks (the learning rate gets scaled down so much that the algorithm ends up stopping entirely before reaching the global optimum).
+
+**** RMSProp
+
+AdaGrad runs the risk of slowing down too fast and never converging to the global optimum. /RMSProp/ fixes this by accumulating only the gradients from the most recent iterations by using exponential decay in the first step.
+
+This optimizer almost always performs much better than AdaGrad (except on very simple problems). This was the preferred optimization algorithm of many researches until Adam optimization came around.
+
+**** Adam and Nadam Optimization
+
+/Adam/, which stands for /adaptative moment estimation/, combines the ideas of momentum optimization and RMSProp: it keeps track of an exponentially decaying average of past gradients just like momentum optimization; and just like RMSProp, it keeps track of an exponentially decaying average of past squared gradients. Adam is an adaptative learning rate algorithm, so it also requires less tuning of the learning rate hyperparameter $\eta$.
+
+Adam optimization has two variants that are worth mentioning:
+
+*AdaMax*: In practice, this variant can be much more stable than regular Adam, but it really depends on the dataset, and Adam tends to perform better overall. Nevertheless, this is a good option to try when experiencing problems with Adam optimization on some task.
+
+*Nadam*: Nadam optimization is Adam optimization with the Nesterov trick, so it often converges slightly faster than Adam. Nadam generally outperforms Adam, but is sometimes outperformed by RMSProp.
+
+Here is a pretty neat comparison of some optimizer algorithms:
+
+| *Class*                            | *Convergence speed* | *Convergence quality* |
+|------------------------------------+---------------------+-----------------------|
+| ~SGD~                              | Bad                 | Good                  |
+| ~SGD(momentum=...)~                | Average             | Good                  |
+| ~SGD(momentum=..., nesterov=True)~ | Average             | Good                  |
+| ~Adagrad~                          | Good                | Bad (stops too early) |
+| ~RMSprop~                          | Good                | Average or Good       |
+| ~Adam~                             | Good                | Average or Good       |
+| ~Nadam~                            | Good                | Average or Good       |
+| ~AdaMax~                           | Good                | Average or Good       |
+
+**** Learning Rate Scheduling
+
+Setting a learning rate too high may lead training to diverge. A training rate too low will eventually lead to the optimum, but it may take a really long time. If the learning rate is just slightly too high, the model will make progress quickly at first, but it will end up dancing around the optimum, never really settling down.
+
+Starting with a large learning rate and then reducing it once the training stops making fast progress is a good strategy to reach a good solution, even faster than with the optimal constant learning rate. There are many different ways to reduce the learning rate during training. It can also be beneficial to start with a low learning rate, increase it, then drop it again. These strategies are called /learning schedules/. These are the most commonly used learning schedules:
+
+*Power scheduling*: Sets the learning rate to a function of the iteration number $t$: $\eta(t) = \eta_0 / (1 + t/s)^c$. This schedule first drops quickly, then more and more slowly. Note that power scheduling requires tuning $\eta_0$, $s$, and possibly $c$.
+
+*Exponential scheduling*: The learning rate is set to $\eta(t) = \eta_0 0.1^{t/s}$. The learning rate gradually drops by a factor of 10 every $s$ steps.
+
+*Piecewise constant scheduling*: Uses a constant learning rate for a number of epochs, then a smaller learning rate for another number of epochs, and so on. This solution works very well, but it requires fiddling around to figure the right sequence of learning rates and how long to use each of them.
+
+*Performance scheduling*: Measures the validation error every $N$ steps, and reduces the learning rate by a factor of $\lambda$ when the error stops dropping.
+
+*1cycle scheduling*: Starts by increasing the initial learning rate $\eta_0$, growing linearly up to $\eta_1$ halfway through training. After that, the learning rate is linearly decreased down to $\eta_0$ again during the second half of training, finishing the last few epochs by dropping the rate down by several orders of magnitude (still linearly). Many experiments show that this approach is often able to speed up training considerably and reach better performance.
+
+Finally, exponential decay, performance scheduling, and 1cycle can considerably speed up convergence, so they are definitely worth giving a try.
+
+*** Avoid Overfitting Through Regularization
+
+The great flexibility of deep neural networks is also what makes them prone to overfitting the training set. To prevent that, regularization is needed.
+
+We already seen one of the best regularization techniques for DNNs: early stopping. Batch Normalization was designed to deal with the unstable gradients problem, but it also acts like a pretty good regularizer. Other regularization techniques for neural networks include: $\ell_1$ and $\ell_2$ regularization, dropout, and max-norm regularization.
+
+**** $\ell_1$ and $\ell_2$ Regularization
+
+Just like for simple linear models, $\ell_2$ regularization can be used to constrain a neural network's connection weights, and/or $\ell_1$ regularization if the goal is to obtain a sparse model.
+
+**** Dropout
+
+/Dropout/ is one of the most popular regularization techniques for deep neural networks. It has proven to be highly successful: even the state-of-the-art neural networks can get a significant accuracy boost by simply adding dropout.
+
+The algorithm is fairly simple: at every training step, every neuron (excluding the output neurons) has a probability $p$ of being temporarily dropped out, meaning it will be entirely ignored during this training step. The hyperparameter $p$ is called the /dropout rate/, and its typically set between 10% and 50%: closer to 20-30% in recurrent neural networks, and closer to 40-50% in convolutional neural networks. Note that after training, neurons don't get dropped anymore.
+
+Since each neuron can be either present or not, there are a total of $2^N$ possible networks ($N$ being the total number of droppable neurons). This is such a huge number that is virtually impossible to sample the same network twice, which means that running $M$ steps is essentially training $M$ different neural networks. The resulting network can be seen as an averaging ensemble of all these smaller neural networks.
+
+Tip: In practice, dropout is usually applied only to the neurons in the top one to three layers (excluding the output, obviously).
+
+Supposing $p = 50\%$, in which case during testing a neuron would be connected to twice as many inputs as it would be on average during training. To compensate for this, each neuron's input connection weights must be multiplied by 0.5 after training. More generally, each input connection weight must be multiplied by the /keep probability/ $(1 - p)$ after training. Alternatively, it is also possible to divide teach neuron's output by the keep probability during training (this is not perfectly equivalent, but it works just as well).
+
+Warning: Since dropout is only active during training, comparing the training loss and the validation loss can be misleading. Because of that, it is important to evaluate the training loss without dropout.
+
+If the model is overfitting, the dropout rate can be increased to regularize the model. If the model is underfitting the training set, the dropout rate should be decreased. Also, it can be helpful to increase the dropout rate for large layers, and reduce it for small ones. Many state-of-the-art architectures only use dropout after the last hidden layer, so it might be worth trying it if full dropout is too strong.
+
+Dropout tends to slow down convergence significantly, but it usually results in a much better model when tuned properly.
+
+Tip: When using a self-normalizing network based on the SELU activation function, /alpha dropout/ should be used instead, since regular dropout would break self-normalization. This variant of dropout preserves the mean and the standard deviation of its inputs.
+
+**** Monte Carlo (MC) Dropout
+
+MC dropout works by averaging over multiple predictions with dropout, which gives us a Monte Carlo estimate that is generally more reliable than the result of a single prediction with dropout off.
+
+Note: The number of Monte Carlo samples to be used is a hyperparameter to be tweaked. The higher it is, the more accurate the predictions and their uncertainty estimates will be. However, increasing this number will aso increase the inference time. There is also very little improvement above a certain number of samples, so the ideal is to find the right trade-off between latency and accuracy, depending on the application.
+
+MC dropout is a great technique to boost dropout models while providing better uncertainty estimates. Since it is just regular dropout during training, it also act as like a regularizer.
+
+**** Max-Norm Regularization
+
+/Max-norm regularization/ is yet another popular regularization technique for neural networks. For each neuron, it constrains the weights $\rm{w}$ of the incoming connections such that $||\rm{w}||_2 \le r$, where $r$ is the max-norm hyperparameter and $||\cdot||_2$ is the $\ell_2$ norm.
+
+Reducing $r$ increases regularization and helps reduce overfitting.  The technique can also help alleviate the unstable gradients (if Batch Normalization is not being used).
+
+*** Summary and Practical Guidelines
+
+Choosing the right techniques really depends on the task at hand and there is no clear consensus just yet. The author recommends the following default guidelines (which should not be considered as hard rules!):
+
+| *Hyperparameter*       | *Default value*                             |
+|------------------------+---------------------------------------------|
+| Kernel initializer     | He initialization                           |
+| Activation function    | ELU                                         |
+| Normalization          | None if shallow; BN if deep                 |
+| Regularization         | Early stopping (plus $\ell_2$ if needed)    |
+| Optimizer              | Momentum optimization (or RMSProp or Nadam) |
+| Learning rate schedule | 1cycle                                      |
+
+If the network is a simple stack of dense layer, then it is capable of self-normalization, and this configuration should be used instead:
+
+| *Hyperparameter*       | *Default value*                             |
+|------------------------+---------------------------------------------|
+| Kernel initializer     | LeCun initialization                        |
+| Activation function    | SELU                                        |
+| Normalization          | None (self-normalization)                   |
+| Regularization         | Alpha dropout if needed                     |
+| Optimizer              | Momentum optimization (or RMSProp or Nadam) |
+| Learning rate schedule | 1cycle                                      |
+
+Also, don't forget to normalize the input features!
+
+The previous guidelines should cover most cases, but here are some exceptions:
+
+- $\ell_1$ regularization can be used to obtain a sparse model. If there is need for a even sparser model, the TensorFlow Model Optimization Toolkit might help.
+- Low-latency model can be obtained by using fewer layers, folding the Batch Normalization layers into the previous ones, and using faster activation functions such as leaky ReLU or regular ReLU. Having a sparse model will also help. Reducing the float precision from 32 bits to 16 or 8 bits is an option as well.
+- If the application is risk-sensitive, MC Dropout may be used to boost performance and to ensure more reliable probability estimates, along with uncertainty estimates.
