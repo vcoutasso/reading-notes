@@ -14,6 +14,7 @@
 - [[#part-ii---neural-networks-and-deep-learning][Part II - Neural Networks and Deep Learning]]
   - [[#10-introduction-to-artificial-neural-networks-with-keras][10. Introduction to Artificial Neural Networks with Keras]]
   - [[#11-training-deep-neural-networks][11. Training Deep Neural Networks]]
+  - [[#12-custom-models-and-training-with-tensorflow][12. Custom Models and Training with TensorFlow]]
 
 * Part I - The Fundamentals of Machine Learning
 
@@ -1418,3 +1419,75 @@ The previous guidelines should cover most cases, but here are some exceptions:
 - $\ell_1$ regularization can be used to obtain a sparse model. If there is need for a even sparser model, the TensorFlow Model Optimization Toolkit might help.
 - Low-latency model can be obtained by using fewer layers, folding the Batch Normalization layers into the previous ones, and using faster activation functions such as leaky ReLU or regular ReLU. Having a sparse model will also help. Reducing the float precision from 32 bits to 16 or 8 bits is an option as well.
 - If the application is risk-sensitive, MC Dropout may be used to boost performance and to ensure more reliable probability estimates, along with uncertainty estimates.
+
+** 12. Custom Models and Training with TensorFlow
+
+*** A Quick Tour of TensorFlow
+
+TensorFlow is a powerful library for numerical computation. It is particularly well-suited and fine-tuned for large-scale Machine Learning, but it can be used for pretty much anything else that requires heavy computations. Here's a summary about the library:
+
+- Its core is very similar to NumPy, but with GPU support.
+- It supports distributed computing across multiple devices and servers.
+- It is capable of optimizing computations for speed and memory usage by extracting the /computation graph/ from a Python function, then optimizing it.
+- Computation graphs can be exported to a portable format (to run on an Android device, for example) .
+- It implements autodiff and provides some excellent optimizers (such as RMSProp and Nadam).
+
+*** Using TensorFlow like NumPy
+
+TensorFlow's API revolves around /tensors/, which are usually multidimensional arrays (but it can also hold a scalar). These tensors flow from operation from operation, hence the name of the library.A
+
+**** Tensors and NumPy
+
+Tensors can be created from a NumPy array, and vice versa! The same goes for operations: TensorFlow operations to NumPy arrays and NumPy operations to tensors.
+
+Warning: NumPy uses 64-bit precision by default, and TensorFlow uses 32-bit. This is because 32-bit is generally more than enough precision for neural networks, and it runs faster on top of using less RAM.
+
+**** Type Conversions
+
+TensorFlow will not perform any type conversion automatically: it just raises an exception when executing operations on tensors with incompatible types.
+
+**** Variables
+
+The ~tf.Tensor~ values are immutable. For mutable values, use ~tf.Variable~, which can be modified in place using the ~assign()~ method.
+
+**** Other Data Structures
+
+*Sparse tensors* (~tf.SparseTensor~): Efficient representation of tensors containing mostly zeros. The ~tf.sparse~ package contains operations for sparse tensors.
+
+*Tensor arrays* (~tf.TensorArray~): Lists of tensors (all tensors must have the same shape and data type) of fixed size by default (can be made dynamic optionally).
+
+*Ragged tensors* (~tf.RaggedTensor~): Static lists of lists of tensors (every tensor must have the same shape and data type). The ~tf.ragged~ package contains operations for ragged tensors.
+
+*String tensors*: Regular tensors of type ~tf.string~. Note that these represent byte strings.
+
+*Sets*: Sets are represented as regular tensors (or sparse tensors).
+
+*Queues*: Store tensors across multiple steps. There are various kinds of queues, all of which are in the ~tf.queues~ package.
+
+*** Customizing Models and Training Algorithms
+
+A /streaming metric/ (or /stateful metric/) is a metric that gets gradually updated, batch after batch.
+
+**** Computing Gradients Using Autodiff
+
+We can compute an approximation of the partial derivative of a given function with respect to a specific parameter by measuring how much the function's output changes when we tweak the corresponding parameter. This method works rather well and can yield pretty accurate approximations, but it requires computing the function at least once per parameter, which makes it intractable for large neural networks.
+
+When dealing with neura networks, we should use autodiff instead: not only are its results accurate, but the method only needs to go through the recorded computations once in reverse order, no matter how many variables there are, which is incredibly efficient and scales very well for large neural networks. This is precisely what TensorFlow does!
+
+*** TensorFlow Functions and Graphs
+
+The most common method to obtain a TF Function from a regular Python function is through the usage of the ~tf.function~ decorator. Under the hood, it will analyze the computations performed by the original Python function and generate an equivalent computation graph.
+
+TensorFlow optimizes the computation graph, pruning unused nodes, simplifying expressions and more. The TF Function then efficiently executes the operations in the optimized graph, in the appropriate order (and in parallel when possible). As a result, a TF Function will usually run much faster than the original Python function, especially if it performs complex computations. So, whenever a Python function needs a performance boost, just transform it into a TF Function!
+
+When using any custom function (e.g., custom loss function, custom metric, custom layer) in a Keras model, Keras will automatically convert the function into a TF Function, so the process is completely transparent.
+
+Warning: Calling a TF Function many times with different numerical Python values will generate many graphs, which slows down the program and ends up using a lot of RAM. Python values should be reserved for arguments that will have few unique values, such as hyperparameters like the number of neurons per layer.
+
+**** TF Function Rules
+
+Converting a Python function that performs TensorFlow operations into a TF Function is trivial. However, there are a few rules to respect:
+
+- A TensorFlow graph can only include TensorFlow constructs (any calls to external libraries, or even to the standard library, will not be part of the graph!). Arbitrary Python code can be wrapped in a ~tf.py_function()~ operation, but this will hinder performance, because TensorFlow will not be able to do any graph optimization on this code.
+- If the function creates a TensorFlow variable, it must do so only upon the very first call, or else an exception will be thrown. It is usually preferable to create varialbes outside of the TF Function.
+- For performance reasons, always prefer vectorized implementations whenever it is possible.
