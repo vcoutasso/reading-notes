@@ -15,6 +15,7 @@
   - [[#10-introduction-to-artificial-neural-networks-with-keras][10. Introduction to Artificial Neural Networks with Keras]]
   - [[#11-training-deep-neural-networks][11. Training Deep Neural Networks]]
   - [[#12-custom-models-and-training-with-tensorflow][12. Custom Models and Training with TensorFlow]]
+  -  [[#13-loading-and-preprocessing-data-with-tensorflow][13. Loading and Preprocessing Data with TensorFlow]]
 
 * Part I - The Fundamentals of Machine Learning
 
@@ -1489,5 +1490,73 @@ Warning: Calling a TF Function many times with different numerical Python values
 Converting a Python function that performs TensorFlow operations into a TF Function is trivial. However, there are a few rules to respect:
 
 - A TensorFlow graph can only include TensorFlow constructs (any calls to external libraries, or even to the standard library, will not be part of the graph!). Arbitrary Python code can be wrapped in a ~tf.py_function()~ operation, but this will hinder performance, because TensorFlow will not be able to do any graph optimization on this code.
-- If the function creates a TensorFlow variable, it must do so only upon the very first call, or else an exception will be thrown. It is usually preferable to create varialbes outside of the TF Function.
+- If the function creates a TensorFlow variable, it must do so only upon the very first call, or else an exception will be thrown. It is usually preferable to create variables outside of the TF Function.
 - For performance reasons, always prefer vectorized implementations whenever it is possible.
+
+**  13. Loading and Preprocessing Data with TensorFlow
+
+TensorFlow makes it easy to handle large datasets and preprocess them efficiently thanks to the /Data API/: we just need to create a dataset object, and tell it where to get the data and how to transform it. TensorFlow takes care of all the implementation details (such as multithreading, queuing, batching and prefetching) for us. To top it off, the Data API even works seamlessly with ~tf.keras~!
+
+*** The Data API
+
+The Data API revolves around the concept of a /dataset/, which represents a sequence of data items. Datasets have the capability of gradually reading data from disk, which is perfect when the entire dataset does not fit in RAM.
+
+**** Chaining Transformations
+
+All sorts of transformations can be applied to a dataset by calling its transformation methods. Each method returns a new dataset, which allows for chained transformations.
+
+Since these transformation methods do not modify datasets (they create new ones), make sure to keep a reference to these new datasets, or else nothing will happen.
+
+The items can also be transformed by calling the ~map()~ method, which takes a function (this function must be convertible to a TF Function), and applies is to the data.
+
+**** Shuffling the Data
+
+Gradient Descent works best when the instances in the training set are independent and identically distributed. We can ensure this by shuffling the instances using the ~shuffle()~ method. It will create a new dataset that will start by filling a buffer with the first items of the original dataset. After that, whenever asked for an item, it will pick one randomly from this buffer and replace it with a fresh one from the source dataset, until it has iterated entirely through the source dataset.
+
+For large datasets that do not fit in memory, this shuffling-buffer approach may not be sufficient, since the buffer will be too small compared to the dataset. One solution is to shuffle the source data itself (using the ~shuf~ command on Linux, for example). To shuffle the instances even more, a common approach is to split the source data into multiple files, then read them in a random order during training. Then on top of that, a shuffling buffer can be used with the ~shuffle()~ method. We can do all of this in just a few lines of code using the Data API.
+
+Tip: For interleaving to work best, it is preferable to have files of identical length, otherwise the ends of the longest files will not be interleaved.
+
+**** Prefetching
+
+Calling ~prefetch(1)~ will create a dataset that will do its best to always be one batch ahead. This essentially means that while the training algorithm is working on one batch, the dataset will already be working in parallel on getting the next batch ready. This can improve performance dramatically, as the GPU will be utilized more efficiently.
+
+If the dataset is small enough ti fit in memory, using the dataset's ~cache()~ method can significantly improve the training speed. This should be generally done after loading and preprocessing the data, but before shuffling, repeating, batching and prefetching.
+
+*** The TFRecord Format
+
+The TFRecord format is TensorFlow's preferred format for storing large amounts of data and reading it efficiently. It is a simple binary format that contains a sequence of binary records of varying sizes.
+
+**** Compressed TFRecord Files
+
+TFRecord files can be compressed, which is especially useful to save space and load the data via a network connection. This can be achieved by setting the ~options~ argument. To read a compressed TFRecord file, the compression type must be specified.
+
+**** A Brief Introduction to Protocol Buffers
+
+TFRecord files usually contain serialized protocol buffers (/protobufs/), which is a portable, extensible and efficient binary format developed at Google in 2001, and made open source in 2008.
+
+**** TensorFlow Protobufs
+
+The main protobuf typically used in a TFRecord is the ~Example~ protobuf, which represents one instance in a dataset. It contains a list of named features, where each feature can be a list of either byte strings, float, or integers.
+
+Typically, a conversion script would read data from the current format (e.g., CSV), and create an ~Example~ protobuf for each instance, serialize them, and save them to several TFRecord files (ideally shuffling them in the process). This requires some work, so make sure it is really necessary (perhaps the pipeline already works fine with CSV files).
+
+*** Preprocessing the Input Features
+
+Preparing data for a neural network requires converting all features into numerical features, generally normalizing them, and more. There are mainly three ways to do this: it can be done ahead of time when preparing the data files, the data can be preprocessed on the fly when loading it with the Data API, or a preprocessing layer can be added directly in the model.
+
+**** Encoding Categorical Features Using Embeddings
+
+An embedding is a trainable vector that represents a category (embeddings are initialized randomly by default). The number of dimensions of the embeddings is a hyperparameter that can be tweaked. Since embeddings are trainable, they will gradually improve during training: similar categories will end up closer together, while moving away from categories that are very different. The better the representation, the easier it will be for the model to make accurate predictions, so training tends to make embeddings useful representations of categories. This is called /representation learning/.
+
+*** TF Transform
+
+When preprocessing is computationally expensive, handling it beforehand may give a significant speedup on the training: the data will be preprocessed once per instance /before/ training, rather than once per instance and per epoch /during/ training. If the dataset is small enough to fit in RAM, its ~cache()~ method can be used. If it is too large, tools like Apache Beam or Spark will help.
+
+Using such tools works great and speeds up training, but it has a problem: they are not coupled to the model, so deploying it would rely on some extra code to take care of preprocessing the data before it is fed to the model, which can eventually become a maintenance nightmare.
+
+One way to improve this is to take the trained model (trained on data that was preprocessed by the Apache Beam or Spark code), and, before deploying, add extra preprocessing layers to take care of preprocessing on the fly. This is what TF Transform (part of TensorFlow Extended (TFX)) was designed to do.
+
+TF Transform lets up apply a preprocessing function to the whole training set using Apache Beam. In the process, it also computes all the necessary statistics over the whole training set. The components that compute these statistics are called /analyzers/. TF Transform will also generate an equivalent TensorFlow Function that can be plugged into the model to be deployed.
+
+With the Data API, TFRecords, the Keras preprocessing layers, and TF Transform, we can build highly scalable input pipelines for training and benefit from fast and portable data preprocessing in production.
