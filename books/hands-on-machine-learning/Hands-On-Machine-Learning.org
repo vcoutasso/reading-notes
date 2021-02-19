@@ -15,7 +15,8 @@
   - [[#10-introduction-to-artificial-neural-networks-with-keras][10. Introduction to Artificial Neural Networks with Keras]]
   - [[#11-training-deep-neural-networks][11. Training Deep Neural Networks]]
   - [[#12-custom-models-and-training-with-tensorflow][12. Custom Models and Training with TensorFlow]]
-  -  [[#13-loading-and-preprocessing-data-with-tensorflow][13. Loading and Preprocessing Data with TensorFlow]]
+  - [[#13-loading-and-preprocessing-data-with-tensorflow][13. Loading and Preprocessing Data with TensorFlow]]
+  - [[#14-deep-computer-vision-using-convolutional-neural-networks][14. Deep Computer Vision Using Convolutional Neural Networks]]
 
 * Part I - The Fundamentals of Machine Learning
 
@@ -1493,7 +1494,7 @@ Converting a Python function that performs TensorFlow operations into a TF Funct
 - If the function creates a TensorFlow variable, it must do so only upon the very first call, or else an exception will be thrown. It is usually preferable to create variables outside of the TF Function.
 - For performance reasons, always prefer vectorized implementations whenever it is possible.
 
-**  13. Loading and Preprocessing Data with TensorFlow
+** 13. Loading and Preprocessing Data with TensorFlow
 
 TensorFlow makes it easy to handle large datasets and preprocess them efficiently thanks to the /Data API/: we just need to create a dataset object, and tell it where to get the data and how to transform it. TensorFlow takes care of all the implementation details (such as multithreading, queuing, batching and prefetching) for us. To top it off, the Data API even works seamlessly with ~tf.keras~!
 
@@ -1560,3 +1561,179 @@ One way to improve this is to take the trained model (trained on data that was p
 TF Transform lets up apply a preprocessing function to the whole training set using Apache Beam. In the process, it also computes all the necessary statistics over the whole training set. The components that compute these statistics are called /analyzers/. TF Transform will also generate an equivalent TensorFlow Function that can be plugged into the model to be deployed.
 
 With the Data API, TFRecords, the Keras preprocessing layers, and TF Transform, we can build highly scalable input pipelines for training and benefit from fast and portable data preprocessing in production.
+
+** 14. Deep Computer Vision Using Convolutional Neural Networks
+
+Convolutional neural networks (CNNs) emerged from the study of the brain's visual cortex, and they have been used in image recognition since the 1980s. Many neurons in the visual cortex have a small /local receptive field/, which react only to visual stimuli located in a limited region of the visual field. This was one of the inspirations to CNNs.
+
+*** Convolutional Layers
+
+The /convolutional layer/ is the most important build block of a CNN: the neurons in the first layer are not connected to every single pixel in the input image, but only to pixels in their receptive field. Each neuron in the second layer is connected only to neurons located within a small rectangle in the first layer and so on. This allows the network to concentrate on small low-level features in the first hidden layer, then assemble them into higher-level features in the next hidden layer, and so on.
+
+A convolution is a mathematical operation that slides one function over another and measures the integral of their pointwise multiplication. Convolutional layers use cross-correlations, which are very similar to convolutions.
+
+A neuron located in a given layer is connected to the output of multiple neurons in the previous layer. In order for a layer to have the same height and width of the previous layer, it is common to add zeros around the inputs. This is called /zero padding/.
+
+It is also possible to connect a large input layer to a much smaller layer by spacing out the receptive fields, which also dramatically reduces the model's computational complexity. The shift from one receptive field to the next is called the /stride/.
+
+**** Filters
+
+The weights of a neuron can be represented as a small image the size of the receptive field. These sets of weights are called /filters/ (or /convolutional kernels/).
+
+A layer full of neurons using the same filter outputs a /feature map/, which highlight the areas in an image that activate the filter the most. The convolutional layer will automatically learn the most useful filters.
+
+**** Stacking Multiple Feature Maps
+
+A convolutional layer has multiple filters and outputs one feature map per filter, so it can be more accurately represented in 3D. Neurons in different feature maps use different parameters.
+
+A convolutional layer applies multiple trainable filters to its inputs, making it capable of detecting multiple features anywhere in its inputs.
+
+Note: All neurons in a feature map share the same parameters, which dramatically reduces the number of parameters in the model. Once the CNN has learned to recognize a pattern in one location, it can recognize it in any other location.
+
+**** Memory Requirements
+
+Convolutional layers require a huge amount of RAM, which is a downside of CNNs. This is especially true during training, because the reverse pass of backpropagation requires all the intermediate values computed during the forward pass.
+
+This is not as much of a problem during inference, because the memory occupied by one layer can be released as soon as the next layer has been computed.
+
+Tip: If training crashes because of an out-of-memory error, try reducing the mini-batch size. Alternatively, try reducing dimensionality using a stride, removing a few layers or using 16-bit floats instead of 32-bit.
+
+*** Pooling Layers
+
+The goal of pooling layers is to /subsample/ (i.e. shrink) the input in order to reduce the computational load, memory usage, and the number of parameters (which reduces the model degree of freedom of the model, thus limiting the risk of overfitting).
+
+Each neuron in a pooling layer is connected to the outputs of a limited number of neurons in the previous layer (just like in convolutional layers). However, a pooling neuron has no weights: all it does is aggregate the inputs using an aggregation function such as the max or mean.
+
+Note: A pooling layer typically works on every input channel independently.
+
+A max pooling layer, on top of reducing the computational load, also introduces some level of invariance to small translations on the input. By inserting a max pooling layer every few layers in a CNN, it is possible to get some level of translation invariance at a larger scale. Moreover, a max pooling layer also introduces a small amount of rotation invariance and a slight scale invariance.
+
+There are some downsides to max pooling: the output will be likely a few times smaller than the original input, with many values being simply dropped; also, in some applications the invariance introduced by the pooling layers is not desirable at all.
+
+Average pooling layers used to be very popular, but nowadays most people use max pooling layers, as they generally perform better. Max pooling tends to preserve only the strongest features, getting rid of all the less meaningful ones, which ends up cleaning the signal.
+
+The /global average pooling layer/ is a common type of pooling layer in modern architectures. It computes the mean of each entire feature map (just like an average pooling layer using a pooling kernel with the same dimensions as the inputs). This is extremely destructive, since most of the information in the feature map is lost, but it can be useful as the output layer.
+
+*** CNN Architectures
+
+The typical architecture of a CNN usually stacks a few convolutional layers (each followed by a ReLU layer), then a pooling layer, then another few convolutional layers (+ReLU), then another pooling layer, and so on.
+
+The input images gets smaller and smaller as it progresses through the network, but it also typically gets deeper and deeper (with more feature maps). At the top of the stack, usually a neural network composed of a few fully connected layers is added, with the final layer outputting the prediction.
+
+Tip: Instead of using convolution kernels that are too large, stack some layers with smaller kernels. This will use fewer parameters, and it will usually perform better. One exception for this is the first convolutional layer, which can typically have large kernels.
+
+**** LeNet-5
+
+This is perhaps the most widely known CNN architecture. LeNet-5 was created by Yann LeCun in 1998, and has been widely used for handwritten digit recognition (MNIST). Some details about this architecture:
+
+- The MNIST images are zero-padded to $32 \times 32$ and normalized before being fed to the network. The image size keeps shrinking as the images progresses through the network, since the rest of the network does not use any padding.
+- The average pooling layers it uses are more complex than usual: each neuron multiplies the mean of its inputs by a learnable coefficient (one per map), and adds a learnable bias term (also one per map), before finally applying the activation function.
+- The output layer is a bit different as well: each neuron outputs the square of the Euclidean distance between its input vector and its weight vector.
+
+**** AlexNet
+
+This network architecture is similar to LeNet-5, but much larger and deeper. It was the first to stack convolutional layers directly on top of one another, instead of stacking a pooling layer on top of each convolutional layer. This architecture won the 2012 ImageNet ILSVRC challenge by a large margin!
+
+The authors used both dropout and data augmentation as regularization techniques to reduce overfitting.
+
+AlexNet also uses a competitive normalization step called /local response normalization/ (LRN): the most strongly activated neurons inhibit other neurons located at the same position in neighboring feature maps. This encourages different feature maps to specialize, forcing them to explore a wider range of features, which ultimately improves generalization.
+
+**** GoogLeNet
+
+The GoogLeNet architecture won the ILSVRC 2014 challenge. Its great performance comes largely from its size, given that it was much deeper than previous CNNs. This was made possible by subnetworks called /inception modules/, which allows for a much more efficient usage of parameters (despite its size, GoogLeNet actually has 10 times fewer parameters than AlexNet).
+
+Inception modules have convolutional layers with $1 \times 1$ kernels, which, among other things, serve as /bottleneck layers/, meaning they reduce dimensionality. This cuts the computational cost and the number of parameters, speeding up training and improving generalization.
+
+The whole inception module can be thought of as a convolutional layer on steroids, able to output feature maps that capture complex patterns at various scales.
+
+The GoogLeNet works, roughly, like this:
+
+- The first two layers divide the input image area by 16 to reduce the computational load. In order to preserve a large amount of information, the first layer uses a large kernel size.
+- Then, a local responde normalization layer is used to ensure that the previous layers learn a wide variety of features.
+- Two convolutional layers follow, where the first acts like a bottleneck layer.
+- Again, a LRN layer ensures that a wide variety of patterns is captured.
+- A max pooling layer is then used to reduce the image size, speeding up computations.
+- Then comes a stack of nine inception modules, interleaved with a couple max pooling layers to reduce dimensionality and further speed up the network.
+- Next, the global average pooling layers outputs the mean of each feature map, dropping any remaining spatial information. Thanks to the dimensionality reduction brought by this layer, the number of parameters in the network is dramatically reduced (there is no need to have several fully connected layers at the top of the CNN like in AlexNet), which limits the risk of overfitting.
+- The last layers are pretty simple: dropout for regularization, and a fully connected layer using softmax activation to output estimated class probabilities.
+
+Several variants of this architecture were proposed by Google researchers, including Inception-v3 and Inception-v4, reaching even better performance.
+
+**** VGGNet
+
+This was the runner-up architecture in the ILSVRC 2014 challenge. It had a very simple and classical architecture, reaching a total of 16 or 19 convolutional layers depending on the VGG variant.
+
+**** ResNet
+
+The /Residual Network/ (or /ResNet/) won the ILSVRC 2015 challenge. It confirmed the general trend that models are getting deeper and deeper, with fewer and fewer parameters. The key to training such deep networks is to use /skip connections/ (or /shortcut connections/): the signal feeding into a layer is also added to the output of a layer located a bit higher up the stack.
+
+Adding the input $\rm{x}$ to the output of the network (which is what a skip connection does), will force the network to model $f(\rm{x}) = h(\rm{x}) - \rm{x}$ rather than $h(\rm{x})$. This is called /residual learning/.
+
+When a regular neural network is initialized, its weights are close to zero, and so are the values it outputs. Adding a skip connection will initially model the identity function. If the target function is somewhat close to the identify function, this will speed up training considerably. If you add many skip connections, the deep residual network can be seen as a stack of /residual units/ (RUs), where each residual unit is a small neural network with a skip connection.
+
+ResNet's architecture starts and ends almost exactly like GoogLeNet (except without a dropout layer), and in between is just a deep stack of simple residual units. Each unit is composed of two convolutional layers with Batch Normalization (BN) and ReLU activation.
+
+Note: Inception-v4 merges the ideas of GoogLeNet and ResNet to achieve even better results on ImageNet classification.
+
+**** Xception
+
+This variant of the GoogLeNet architecture, proposed in 2016, significantly outperformed Inception-v3 on a huge vision task. It merges the ideas of GoogLeNet and ResNet, but it replaces the inception modules with a special type of layer called a /depthwise separable convolution layer/ (or /separable convolution layer/). A separable convolutional layer makes the strong assumption that spatial patterns and cross-channel patterns can be modeled separately. It is composed of two parts: the first part applies a single spatial filter for each input feature map, then the second part looks exclusively for cross-channel patterns.
+
+Separable convolutional layers only have one spatial filter per input channel, so they should be avoided after layers that have too few channels, such as the input layers.
+
+Tip: Separable convolutional layers use fewer parameters, less memory, and fewer computations than regular convolutional layers, and in general they even perform better. For these reasons, consider using them by default (except after layers with few channels).
+
+**** SENet
+
+The /Squeeze-and-Excitation Network/ (SENet) was the architecture to win the ILSVRC 2017 challenge. It extends existing architectures such as inception networks and ResNet, boosting their performance. The boost comes from the fact that the SENet adds a small neural network, called an SE /block/, to every unit in the original architecture.
+
+An SE block is responsible for analyzing the output of the unit it is attached to, focusing exclusively on the depth dimension, and it learns which features are usually most active together. This information is then used to recalibrate the feature maps.
+
+An SE block is composed of three layers: a global average pooling layer, a hidden dense layer using ReLU, and a dense output layer using the sigmoid activation function.
+
+The global average pooling layer computes the mean activation for each feature map. The next layer is where the "squeeze" happens: it contains significantly fewer neurons, so the previous output is compressed into a small vector (a low-dimensional vector representation). This bottleneck step forces the SE block to learn a general representation of the feature combinations. Finally, the output layer takes the embedding and outputs a recalibration vector, containing one number per feature map (each between 0 and 1).
+
+*** Classification and Localization
+
+Localizing an object in a picture can be expressed as a regression task: to goal is to predict a bounding box around the object, it is common to predict the horizontal and vertical coordinates of the object's center, as well as its height and width.
+
+MSE works well as a cost function to train the model, but the /Intersection over Union/ (IoU) is preferred to evaluate how well the model can predict bounding boxes. It measures the area of overlap between the predicted bounding box and the target bounding box, divided by the area of their union.
+
+*** Object Detection
+
+/Object detection/ is the task of classifying and localizing multiple objects in an image.
+
+Up until recently, a common approach was to take a CNN trained to classify and locate a single object, then slide it across an image. However, this technique will detect the same object multiple times, at slightly different positions each time. Some post-processing is needed to get rid of unnecessary bounding boxes (using /non-max suppression/, for example). This simple approach works well, but it requires running the CNN multiple times, which is quite slow. Fortunately, there is a much faster way to slide a CNN across an image: using a /fully convolutional network/ (FCN).
+
+**** Fully Convolutional Networks
+
+Fully convolutional networks were first introduced in a 2015 paper for semantic segmentation (the task of classifying every pixel in an image according to the class of the object it belongs to). The authors pointed out that the dense layers at the top of a CNN could be replaced by convolutional layers (they are pretty much equivalent here). One main advantage of doing this is that a convolutional layer is much more flexible: while a dense layer expects a specific input size, a convolutional layer will process images of practically any size.
+
+Tip: To convert a dense layer to a convolutional layer, the number of filters in the convolutional layer must be equal to the number of units in the dense layers, the filter size must be equal to the size of the input feature maps, and the ~"valid"~ padding must be used. The stride may be set to 1 or more.
+
+Since an FCN contains only convolutional layers (and pooling layers, which have the same property), they can be trained and executed on images of any size.
+
+The FCN approach is very efficient because the network only looks at the image once!
+
+**** You Only Look Once (YOLO)
+
+YOLO is a fast and accurate object detection architecture proposed in a 2015 paper. It was subsequently improved in new versions proposed more recently. It is fast enough that it can run in real time on a video!
+
+- It outputs five bounding boxes for each grid cell (instead of just one), and each of them comes with an objectness score.
+- YOLOv3 predicts an offset relative to the coordinates of the grid cell (instead of predicting the absolute coordinates of the centers).
+- Before training the neural network, YOLOv3 finds five representative bounding box dimensions, called /achor boxes/ (or /bounding box priors/) by applying the K-Means algorithm. When the model predicts five bounding boxes per grid cells, it is actually predicting how much to rescale each of the anchor boxes.
+- The network is trained using images of different scaled, which allows it to then detect objects at different scales.
+
+The model also uses skip connections to recover some of the spatial resolution that is lost in the CNN.
+
+*** Semantic Segmentation
+
+/Semantic segmentation/ is the task of classifying every pixel of an image according to the class of the object it belongs to. Different instances of the same object class are /not/ distinguished.
+
+The main difficulty in this task is that images gradually lose their spatial resolution as they progress through a regular CNN due to the layers with strides greater than 1.
+
+Some approaches to tackle this problem include the usage of a single /upsamling layer/ that multiplies the resolution of CNNs that output feature maps smaller than the input image. This upsampling can be achieved by using, for example, a /transposed convolutional layer/: it is equivalent to stretching the image by inserting empty rows and columns, then performing a regular convolution. How much the input will be stretched depends on the stride used.
+
+A transposed convolutional layer can be initialized to perform something close to linear interpolation, but it will learn to do better during training (since it is a trainable layer).
+
+Instance segmentation is similar to semantic segmentation, but the individual objects are distinguished from each other.
